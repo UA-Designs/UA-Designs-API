@@ -152,17 +152,6 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: [],
       comment: 'Quality requirements and standards'
     },
-    qualityChecks: {
-      type: DataTypes.JSON,
-      defaultValue: [],
-      comment: 'Quality check results'
-    },
-    // PMBOK Project Risk Management
-    risks: {
-      type: DataTypes.JSON,
-      defaultValue: [],
-      comment: 'Task-specific risks'
-    },
     // Dependencies and relationships
     dependencies: {
       type: DataTypes.JSON,

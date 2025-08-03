@@ -265,12 +265,6 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: [],
       comment: 'Project documents and files'
     },
-    // Change management
-    changeRequests: {
-      type: DataTypes.JSON,
-      defaultValue: [],
-      comment: 'Change request history'
-    },
     // Lessons learned
     lessonsLearned: {
       type: DataTypes.JSON,
