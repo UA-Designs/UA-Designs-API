@@ -11,24 +11,24 @@ const sequelize = new Sequelize({
   pool: dbConfig.pool
 });
 
-// Import all models
-const User = require('./User')(sequelize, Sequelize);
-const Project = require('./Project')(sequelize, Sequelize);
-const Task = require('./Task')(sequelize, Sequelize);
-const Resource = require('./Resource')(sequelize, Sequelize);
-const Cost = require('./Cost')(sequelize, Sequelize);
-const Risk = require('./Risk')(sequelize, Sequelize);
-const Quality = require('./Quality')(sequelize, Sequelize);
-const Communication = require('./Communication')(sequelize, Sequelize);
-const Procurement = require('./Procurement')(sequelize, Sequelize);
-const Stakeholder = require('./Stakeholder')(sequelize, Sequelize);
-const ChangeRequest = require('./ChangeRequest')(sequelize, Sequelize);
-const Material = require('./Material')(sequelize, Sequelize);
-const Equipment = require('./Equipment')(sequelize, Sequelize);
-const Labor = require('./Labor')(sequelize, Sequelize);
-const Schedule = require('./Schedule')(sequelize, Sequelize);
-const Budget = require('./Budget')(sequelize, Sequelize);
-const Report = require('./Report')(sequelize, Sequelize);
+// Import all models (updated to use index.js within subfolders)
+const User = require('./User/index')(sequelize, Sequelize);
+const Project = require('./Project/index')(sequelize, Sequelize);
+const Task = require('./Task/index')(sequelize, Sequelize);
+const Resource = require('./Resource/index')(sequelize, Sequelize);
+const Cost = require('./Cost/index')(sequelize, Sequelize);
+const Risk = require('./Risk/index')(sequelize, Sequelize);
+const Quality = require('./Quality/index')(sequelize, Sequelize);
+const Communication = require('./Communication/index')(sequelize, Sequelize);
+const Procurement = require('./Procurement/index')(sequelize, Sequelize);
+const Stakeholder = require('./Stakeholder/index')(sequelize, Sequelize);
+const ChangeRequest = require('./ChangeRequest/index')(sequelize, Sequelize);
+const Material = require('./Material/index')(sequelize, Sequelize);
+const Equipment = require('./Equipment/index')(sequelize, Sequelize);
+const Labor = require('./Labor/index')(sequelize, Sequelize);
+const Schedule = require('./Schedule/index')(sequelize, Sequelize);
+const Budget = require('./Budget/index')(sequelize, Sequelize);
+const Report = require('./Report/index')(sequelize, Sequelize);
 
 // Define associations based on PMBOK knowledge areas
 

@@ -43,46 +43,46 @@ app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// PMBOK Knowledge Areas Routes
+// PMBOK Knowledge Areas Routes (temporarily disabled for testing)
 // 1. Project Integration Management
-app.use('/api/integration', require('./routes/integration'));
+// app.use('/api/integration', require('./routes/integration'));
 
 // 2. Project Scope Management
-app.use('/api/scope', require('./routes/scope'));
+// app.use('/api/scope', require('./routes/scope'));
 
 // 3. Project Schedule Management
-app.use('/api/schedule', require('./routes/schedule'));
+// app.use('/api/schedule', require('./routes/schedule'));
 
 // 4. Project Cost Management
-app.use('/api/cost', require('./routes/cost'));
+// app.use('/api/cost', require('./routes/cost'));
 
 // 5. Project Quality Management
-app.use('/api/quality', require('./routes/quality'));
+// app.use('/api/quality', require('./routes/quality'));
 
 // 6. Project Resource Management
-app.use('/api/resources', require('./routes/resources'));
+// app.use('/api/resources', require('./routes/resources'));
 
 // 7. Project Communications Management
-app.use('/api/communications', require('./routes/communications'));
+// app.use('/api/communications', require('./routes/communications'));
 
 // 8. Project Risk Management
-app.use('/api/risk', require('./routes/risk'));
+// app.use('/api/risk', require('./routes/risk'));
 
 // 9. Project Procurement Management
-app.use('/api/procurement', require('./routes/procurement'));
+// app.use('/api/procurement', require('./routes/procurement'));
 
 // 10. Project Stakeholder Management
-app.use('/api/stakeholders', require('./routes/stakeholders'));
+// app.use('/api/stakeholders', require('./routes/stakeholders'));
 
 // Authentication and User Management
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/users', require('./routes/users'));
+// app.use('/api/auth', require('./routes/auth'));
+// app.use('/api/users', require('./routes/users'));
 
 // File uploads
-app.use('/api/uploads', require('./routes/uploads'));
+// app.use('/api/uploads', require('./routes/uploads'));
 
 // Reports and Analytics
-app.use('/api/reports', require('./routes/reports'));
+// app.use('/api/reports', require('./routes/reports'));
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -111,11 +111,30 @@ app.use('*', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 UA Designs PMS Server running on port ${PORT}`);
   console.log(`📊 PMBOK-aligned Project Management System`);
   console.log(`🏗️  Construction Industry Optimized`);
   console.log(`⏰ ${new Date().toISOString()}`);
+});
+
+// Handle server errors
+server.on('error', (error) => {
+  console.error('Server error:', error);
+  if (error.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use`);
+  }
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
 });
 
 module.exports = app; 
