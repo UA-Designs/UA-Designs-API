@@ -1,131 +1,313 @@
-# UA Designs Project Management System
+# UA Designs API
 
-A comprehensive PMBOK®-aligned Project Management System designed specifically for UA Designs, a mid-sized construction firm.
+Backend API for UA Designs PMBOK-aligned Project Management System - Construction Industry Optimized
 
-## Overview
+## 🏗️ Overview
 
-This system addresses the critical gaps identified in UA Designs' current project management processes:
+This is the backend API for a comprehensive project management system designed specifically for construction companies, following PMBOK (Project Management Body of Knowledge) standards. The system provides robust APIs for managing all aspects of construction projects from planning to completion.
 
-- **Scheduling**: Real-time updates and coordination
-- **Resource Allocation**: Centralized tracking of materials, labor, and equipment
-- **Cost Management**: Budget variance monitoring and expense tracking
-- **Risk Mitigation**: Proactive risk assessment and mitigation strategies
-- **Stakeholder Communication**: Integrated communication dashboard
+## 🚀 Features
 
-## PMBOK Knowledge Areas Integration
+### PMBOK Knowledge Areas
+- **Integration Management** - Project charter, change requests, project closure
+- **Scope Management** - WBS, requirements, scope validation
+- **Schedule Management** - Gantt charts, critical path, resource allocation
+- **Cost Management** - Budget tracking, cost variance analysis, earned value
+- **Quality Management** - Quality metrics, inspections, audits
+- **Resource Management** - Team allocation, equipment tracking, skills matrix
+- **Communications** - Stakeholder communication, meeting logs, reports
+- **Risk Management** - Risk register, mitigation strategies, contingency planning
+- **Procurement Management** - Vendor management, contracts, purchase orders
 
-The system is structured around PMBOK® knowledge areas:
+### Construction-Specific Features
+- **Equipment Management** - Equipment tracking, maintenance schedules, utilization
+- **Material Management** - Inventory tracking, procurement, waste management
+- **Labor Management** - Time tracking, productivity metrics, safety compliance
+- **Safety Management** - Incident reporting, safety inspections, compliance tracking
+- **Progress Tracking** - Photo documentation, milestone tracking, progress reports
 
-1. **Project Integration Management** - Unified project dashboard
-2. **Project Scope Management** - Change request process and scope control
-3. **Project Schedule Management** - Gantt chart-based scheduling
-4. **Project Cost Management** - Budget tracking and variance analysis
-5. **Project Quality Management** - Quality control and assurance
-6. **Project Resource Management** - Material, labor, and equipment allocation
-7. **Project Communications Management** - Real-time messaging and reporting
-8. **Project Risk Management** - Risk assessment and mitigation
-9. **Project Procurement Management** - Material procurement tracking
-10. **Project Stakeholder Management** - Stakeholder engagement and approval workflows
+## 🛠️ Technology Stack
 
-## Key Features
+- **Runtime:** Node.js 18+
+- **Framework:** Express.js
+- **Database:** SQLite (development) / PostgreSQL (production)
+- **ORM:** Sequelize
+- **Authentication:** JWT
+- **File Upload:** Multer
+- **Documentation:** PDF generation, Excel export
+- **Real-time:** WebSocket support
+- **Security:** Helmet, CORS, Rate limiting
 
-### Real-time Scheduling
-- Gantt chart visualization
-- Real-time progress updates
-- Resource conflict detection
-- Automated scheduling adjustments
+## 📋 Prerequisites
 
-### Cost Management
-- Budget tracking and variance analysis
-- Material cost monitoring
-- Labor expense tracking
-- Automated financial dashboards
+- Node.js 18.0.0 or higher
+- npm 9.0.0 or higher
+- Git
 
-### Resource Management
-- Material usage tracking
-- Labor assignment optimization
-- Equipment allocation
-- Real-time availability monitoring
+## 🚀 Quick Start
 
-### Risk Management
-- Risk assessment module
-- Mitigation strategy proposals
-- Risk tracking and monitoring
-- Early warning systems
-
-### Communication Dashboard
-- Real-time messaging (Pusher API integration)
-- Progress reporting automation
-- Approval tracking
-- Stakeholder notifications
-
-## Technology Stack
-
-- **Frontend**: React.js with TypeScript
-- **Backend**: Node.js with Express
-- **Database**: PostgreSQL
-- **Real-time Communication**: Pusher API
-- **Authentication**: JWT
-- **File Storage**: AWS S3 (for documents and images)
-- **Deployment**: Docker containers
-
-## Installation
-
+### 1. Clone the Repository
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd ua_designs_pms
+git clone https://github.com/UA-Designs/UA-Designs-API.git
+cd UA-Designs-API
+```
 
-# Install dependencies
+### 2. Install Dependencies
+```bash
 npm install
+```
 
-# Set up environment variables
-cp .env.example .env
+### 3. Environment Setup
+```bash
+# Copy environment template
+cp env.example .env
 
-# Run database migrations
+# Edit .env with your configuration
+```
+
+#### Environment Variables
+Create a `.env` file in the root directory with the following variables:
+
+```env
+# Server Configuration
+NODE_ENV=development
+PORT=5000
+HOST=localhost
+
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=ua_designs_pms
+DB_USER=your_db_user
+DB_PASSWORD=your_db_password
+DB_DIALECT=postgresql
+# For SQLite (development only)
+# DB_STORAGE=./database.sqlite
+
+# JWT Configuration
+JWT_SECRET=your-super-secret-jwt-key-here
+JWT_EXPIRES_IN=24h
+JWT_REFRESH_SECRET=your-refresh-secret-key
+JWT_REFRESH_EXPIRES_IN=7d
+
+# Email Configuration (for notifications)
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASSWORD=your-app-password
+EMAIL_FROM=noreply@uadesigns.com
+
+# File Upload Configuration
+UPLOAD_PATH=./uploads
+MAX_FILE_SIZE=10485760
+ALLOWED_FILE_TYPES=jpg,jpeg,png,pdf,doc,docx,xls,xlsx
+
+# AWS Configuration (for file storage)
+AWS_ACCESS_KEY_ID=your-aws-access-key
+AWS_SECRET_ACCESS_KEY=your-aws-secret-key
+AWS_REGION=us-east-1
+AWS_S3_BUCKET=ua-designs-uploads
+
+# Pusher Configuration (for real-time features)
+PUSHER_APP_ID=your-pusher-app-id
+PUSHER_KEY=your-pusher-key
+PUSHER_SECRET=your-pusher-secret
+PUSHER_CLUSTER=us2
+
+# Rate Limiting
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
+
+# CORS Configuration
+CORS_ORIGIN=http://localhost:5173,http://localhost:3000
+CORS_CREDENTIALS=true
+
+# Logging
+LOG_LEVEL=info
+LOG_FILE=./logs/app.log
+
+# Security
+BCRYPT_ROUNDS=12
+SESSION_SECRET=your-session-secret-key
+
+# External APIs
+WEATHER_API_KEY=your-weather-api-key
+MAPS_API_KEY=your-google-maps-api-key
+
+# Development Tools
+DEBUG=ua-designs:*
+NODEMON_IGNORE=node_modules,logs,uploads
+```
+
+**Important Security Notes:**
+- Never commit your `.env` file to version control
+- Use strong, unique secrets for JWT_SECRET and SESSION_SECRET
+- Generate secure passwords for database access
+- Use environment-specific values for production
+
+### 4. Database Setup
+```bash
+# Run migrations
 npm run migrate
 
-# Start development server
+# Seed initial data (optional)
+npm run seed
+```
+
+### 5. Start Development Server
+```bash
 npm run dev
 ```
 
-## Project Structure
+The API will be available at `http://localhost:5000`
 
+## 📚 API Documentation
+
+### Base URL
 ```
-ua_designs_pms/
-├── frontend/                 # React frontend application
-├── backend/                  # Node.js backend API
-├── database/                 # Database migrations and seeds
-├── docs/                     # Documentation
-├── docker/                   # Docker configuration
-└── shared/                   # Shared types and utilities
+http://localhost:5000/api
 ```
 
-## Role-Based Access Control
+### Authentication
+All protected routes require a JWT token in the Authorization header:
+```
+Authorization: Bearer <your-jwt-token>
+```
 
-The system implements role-based permissions aligned with UA Designs' operational structure:
+### Main Endpoints
 
-- **Civil Engineer**: Materials, methodology, worker assignments
-- **Architect**: Design and finishing materials
-- **Site Engineer**: Progress tracking and site supervision
-- **Junior/Apprentice Architects**: Detail development and supervision
-- **Bookkeeper**: Payroll and finance
-- **Secretary**: Liaison work and external transactions
+#### Authentication
+- `POST /api/auth/login` - User login
+- `POST /api/auth/register` - User registration
+- `POST /api/auth/forgot-password` - Password reset request
+- `POST /api/auth/reset-password` - Password reset
 
-## Getting Started
+#### Projects
+- `GET /api/projects` - List all projects
+- `POST /api/projects` - Create new project
+- `GET /api/projects/:id` - Get project details
+- `PUT /api/projects/:id` - Update project
+- `DELETE /api/projects/:id` - Delete project
 
-1. Review the project requirements and PMBOK alignment
-2. Set up the development environment
-3. Configure the database and API keys
-4. Start with core modules (Scheduling, Cost Management)
-5. Implement role-based access control
-6. Add real-time communication features
-7. Integrate risk management and reporting
+#### Tasks & Scheduling
+- `GET /api/schedule/tasks` - List tasks
+- `POST /api/schedule/tasks` - Create task
+- `PUT /api/schedule/tasks/:id` - Update task
+- `GET /api/schedule/gantt` - Get Gantt chart data
 
-## Contributing
+#### Cost Management
+- `GET /api/cost/budget` - Get budget information
+- `POST /api/cost/expenses` - Record expense
+- `GET /api/cost/variance` - Cost variance analysis
 
-This system is specifically designed for UA Designs' operational needs. All development should align with PMBOK® standards and construction industry best practices.
+#### Risk Management
+- `GET /api/risk/register` - Risk register
+- `POST /api/risk/register` - Add new risk
+- `PUT /api/risk/register/:id` - Update risk
 
-## License
+#### Reports
+- `GET /api/reports/project/:id` - Project report
+- `GET /api/reports/cost/:id` - Cost report
+- `GET /api/reports/schedule/:id` - Schedule report
 
-Proprietary - UA Designs Project Management System 
+## 🗂️ Project Structure
+
+```
+src/
+├── config/           # Database and app configuration
+├── database/         # Migration and seeding scripts
+├── middleware/       # Authentication and other middleware
+├── models/           # Sequelize models
+│   ├── Project/      # Project-related models
+│   ├── Task/         # Task and scheduling models
+│   ├── User/         # User management models
+│   ├── Cost/         # Cost management models
+│   ├── Risk/         # Risk management models
+│   └── ...           # Other PMBOK knowledge areas
+├── routes/           # API route handlers
+│   ├── auth/         # Authentication routes
+│   ├── projects/     # Project management routes
+│   ├── schedule/     # Scheduling routes
+│   ├── cost/         # Cost management routes
+│   ├── risk/         # Risk management routes
+│   └── ...           # Other knowledge area routes
+└── server.js         # Main server file
+```
+
+## 🔧 Available Scripts
+
+- `npm start` - Start production server
+- `npm run dev` - Start development server with nodemon
+- `npm run build` - Build for production
+- `npm test` - Run tests
+- `npm run migrate` - Run database migrations
+- `npm run seed` - Seed database with initial data
+- `npm run lint` - Run ESLint
+- `npm run lint:fix` - Fix ESLint errors
+
+## 🔒 Security Features
+
+- JWT-based authentication
+- Password hashing with bcrypt
+- Rate limiting
+- CORS protection
+- Helmet security headers
+- Input validation and sanitization
+- SQL injection prevention
+
+## 📊 Database Schema
+
+The system uses a comprehensive database schema supporting:
+- User management and roles
+- Project hierarchy and relationships
+- Task dependencies and scheduling
+- Cost tracking and budgeting
+- Risk assessment and mitigation
+- Resource allocation
+- Quality management
+- Communication logs
+
+## 🚀 Deployment
+
+### Production Environment
+1. Set up PostgreSQL database
+2. Configure environment variables
+3. Run migrations: `npm run migrate`
+4. Start server: `npm start`
+
+### Docker Support
+```bash
+# Build image
+docker build -t ua-designs-api .
+
+# Run container
+docker run -p 5000:5000 ua-designs-api
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature-name`
+3. Commit changes: `git commit -am 'Add feature'`
+4. Push to branch: `git push origin feature-name`
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the UNLICENSED License - see the LICENSE file for details.
+
+## 🆘 Support
+
+For support and questions:
+- Create an issue in the repository
+- Contact the development team
+- Check the documentation in the `docs/` folder
+
+## 🔗 Related Projects
+
+- **Frontend:** [UA-Designs-Frontend](https://github.com/UA-Designs/UA-Designs-Frontend) - React frontend application
+- **Documentation:** See `docs/` folder for detailed guides
+
+---
+
+**Built with ❤️ for UA Designs Construction Management**
