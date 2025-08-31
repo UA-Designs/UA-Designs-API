@@ -84,6 +84,9 @@ app.use('/api/schedule', require('./routes/schedule'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 
+// Dashboard routes
+app.use('/api/dashboard', require('./routes/dashboard'));
+
 // File uploads
 // app.use('/api/uploads', require('./routes/uploads'));
 
