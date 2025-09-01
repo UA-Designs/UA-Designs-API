@@ -260,10 +260,87 @@ const getCostVariance = async (req, res) => {
   }
 };
 
+const getRecentActivities = async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+    
+    // Mock recent activities data
+    const recentActivities = [
+      {
+        id: 1,
+        type: 'task_completed',
+        message: 'Foundation Excavation completed by John Smith',
+        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+        projectId: 1,
+        projectName: 'Office Building Construction',
+        userId: 'user1',
+        userName: 'John Smith'
+      },
+      {
+        id: 2,
+        type: 'project_updated',
+        message: 'Project status updated to In Progress',
+        timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(), // 4 hours ago
+        projectId: 2,
+        projectName: 'Residential Complex',
+        userId: 'user2',
+        userName: 'Jane Smith'
+      },
+      {
+        id: 3,
+        type: 'cost_updated',
+        message: 'Budget variance reported: +5% over budget',
+        timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(), // 6 hours ago
+        projectId: 1,
+        projectName: 'Office Building Construction',
+        userId: 'user3',
+        userName: 'Mike Johnson'
+      },
+      {
+        id: 4,
+        type: 'user_login',
+        message: 'User logged in successfully',
+        timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(), // 8 hours ago
+        projectId: null,
+        projectName: null,
+        userId: 'user4',
+        userName: 'Sarah Wilson'
+      },
+      {
+        id: 5,
+        type: 'task_created',
+        message: 'New task created: Steel Frame Installation',
+        timestamp: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(), // 12 hours ago
+        projectId: 1,
+        projectName: 'Office Building Construction',
+        userId: 'user1',
+        userName: 'John Smith'
+      }
+    ];
+
+    // Limit the results
+    const limitedActivities = recentActivities.slice(0, parseInt(limit));
+
+    res.json({
+      success: true,
+      data: limitedActivities,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Recent activities error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch recent activities',
+      error: error.message
+    });
+  }
+};
+
 // Dashboard routes
 router.get('/stats', authenticateToken, getStats);
 router.get('/project-progress', authenticateToken, getProjectProgress);
 router.get('/task-progress', authenticateToken, getTaskProgress);
 router.get('/cost-variance', authenticateToken, getCostVariance);
+router.get('/recent-activities', authenticateToken, getRecentActivities);
 
 module.exports = router;

@@ -18,11 +18,29 @@ router.post('/register', async (req, res) => {
   try {
     const { firstName, lastName, email, password, role, employeeId } = req.body;
 
-    // Validate required fields
-    if (!firstName || !lastName || !email || !password || !role || !employeeId) {
+    // Debug: Log received data (remove in production)
+    console.log('Registration attempt with data:', {
+      firstName: firstName ? 'provided' : 'missing',
+      lastName: lastName ? 'provided' : 'missing',
+      email: email ? 'provided' : 'missing',
+      password: password ? 'provided' : 'missing',
+      role: role ? 'provided' : 'missing',
+      employeeId: employeeId ? 'provided' : 'missing'
+    });
+
+    // Validate required fields with detailed error message
+    const missingFields = [];
+    if (!firstName) missingFields.push('firstName');
+    if (!lastName) missingFields.push('lastName');
+    if (!email) missingFields.push('email');
+    if (!password) missingFields.push('password');
+    if (!role) missingFields.push('role');
+    
+    if (missingFields.length > 0) {
       return res.status(400).json({
         success: false,
-        message: 'All fields are required'
+        message: `Missing required fields: ${missingFields.join(', ')}`,
+        missingFields
       });
     }
 
@@ -148,6 +166,49 @@ router.post('/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+});
+
+// Get current user profile (alias for /me)
+router.get('/me', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Access token required'
+      });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'ua-designs-secret-key');
+    const user = await User.findByPk(decoded.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+        employeeId: user.employeeId,
+        permissions: user.permissions
+      }
+    });
+  } catch (error) {
+    console.error('Get profile error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',

@@ -23,19 +23,24 @@ app.use(cors({
   credentials: true
 }));
 
-// Rate limiting
+// Rate limiting - Increased limits for development
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
+  max: 1000, // Increased from 100 to 1000 requests per window for development
+  message: {
+    success: false,
+    message: 'Too many requests, please try again later'
+  },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
 app.use('/api/', limiter);
 
-// Speed limiting
+// Speed limiting - Relaxed for development
 const speedLimiter = slowDown({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  delayAfter: 50, // allow 50 requests per 15 minutes, then...
-  delayMs: 500 // begin adding 500ms of delay per request above 50
+  delayAfter: 500, // Increased from 50 to 500 requests per 15 minutes, then...
+  delayMs: 100 // Reduced delay from 500ms to 100ms per request above limit
 });
 app.use('/api/', speedLimiter);
 
@@ -83,6 +88,9 @@ app.use('/api/schedule', require('./routes/schedule'));
 // Authentication and User Management
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
+
+// Project Management
+app.use('/api/projects', require('./routes/projects'));
 
 // Dashboard routes
 app.use('/api/dashboard', require('./routes/dashboard'));
