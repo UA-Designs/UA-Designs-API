@@ -54,36 +54,36 @@ app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// PMBOK Knowledge Areas Routes (temporarily disabled for testing)
+// PMBOK Knowledge Areas Routes - Organized by Knowledge Area
 // 1. Project Integration Management
-// app.use('/api/integration', require('./routes/integration'));
+app.use('/api/integration', require('./routes/Integration'));
 
 // 2. Project Scope Management
-// app.use('/api/scope', require('./routes/scope'));
+app.use('/api/scope', require('./routes/Scope'));
 
 // 3. Project Schedule Management
-app.use('/api/schedule', require('./routes/schedule'));
+app.use('/api/schedule', require('./routes/Schedule'));
 
 // 4. Project Cost Management
-// app.use('/api/cost', require('./routes/cost'));
+app.use('/api/cost', require('./routes/Cost'));
 
 // 5. Project Quality Management
-// app.use('/api/quality', require('./routes/quality'));
+app.use('/api/quality', require('./routes/Quality'));
 
 // 6. Project Resource Management
-// app.use('/api/resources', require('./routes/resources'));
+app.use('/api/resources', require('./routes/Resources'));
 
 // 7. Project Communications Management
-// app.use('/api/communications', require('./routes/communications'));
+app.use('/api/communications', require('./routes/Communications'));
 
 // 8. Project Risk Management
-// app.use('/api/risk', require('./routes/risk'));
+app.use('/api/risk', require('./routes/Risk'));
 
 // 9. Project Procurement Management
-// app.use('/api/procurement', require('./routes/procurement'));
+app.use('/api/procurement', require('./routes/Procurement'));
 
 // 10. Project Stakeholder Management
-// app.use('/api/stakeholders', require('./routes/stakeholders'));
+app.use('/api/stakeholders', require('./routes/Stakeholders'));
 
 // Authentication and User Management
 app.use('/api/auth', require('./routes/auth'));

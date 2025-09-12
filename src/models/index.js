@@ -11,33 +11,87 @@ const sequelize = new Sequelize({
   pool: dbConfig.pool
 });
 
-// Import all models (updated to use index.js within subfolders)
+// Import all models using PMBOK knowledge area structure
 const User = require('./User/index')(sequelize, Sequelize);
-const Project = require('./Project/index')(sequelize, Sequelize);
-const Task = require('./Task/index')(sequelize, Sequelize);
-const Resource = require('./Resource/index')(sequelize, Sequelize);
-const Cost = require('./Cost/index')(sequelize, Sequelize);
-const Risk = require('./Risk/index')(sequelize, Sequelize);
-const Quality = require('./Quality/index')(sequelize, Sequelize);
-const Communication = require('./Communication/index')(sequelize, Sequelize);
-const Procurement = require('./Procurement/index')(sequelize, Sequelize);
-const Stakeholder = require('./Stakeholder/index')(sequelize, Sequelize);
-const ChangeRequest = require('./ChangeRequest/index')(sequelize, Sequelize);
-const Material = require('./Material/index')(sequelize, Sequelize);
-const Equipment = require('./Equipment/index')(sequelize, Sequelize);
-const Labor = require('./Labor/index')(sequelize, Sequelize);
-const Schedule = require('./Schedule/index')(sequelize, Sequelize);
-const Budget = require('./Budget/index')(sequelize, Sequelize);
 const Report = require('./Report/index')(sequelize, Sequelize);
+
+// PMBOK Integration Management
+const { Project, ChangeRequest, ProjectCharter, ProjectClosure } = require('./Integration');
+
+// PMBOK Schedule Management
+const { Task } = require('./Schedule');
+
+// PMBOK Cost Management
+const { CostModel: Cost, Budget } = require('./Cost');
+
+// PMBOK Resource Management
+const { Material, Labor, Equipment } = require('./Resources');
+const Resource = require('./Resource/index')(sequelize, Sequelize);
+
+// PMBOK Communications Management
+const { Communication } = require('./Communications');
+
+// PMBOK Risk Management
+const { RiskModel: Risk } = require('./Risk');
+
+// PMBOK Quality Management
+const { QualityModel: Quality } = require('./Quality');
+
+// PMBOK Procurement Management
+const { ProcurementModel: Procurement } = require('./Procurement');
+
+// PMBOK Stakeholder Management
+const { Stakeholder } = require('./Stakeholders');
+
+// Initialize models with sequelize
+const ProjectModel = Project(sequelize, Sequelize);
+const ChangeRequestModel = ChangeRequest(sequelize, Sequelize);
+const ProjectCharterModel = ProjectCharter(sequelize, Sequelize);
+const ProjectClosureModel = ProjectClosure(sequelize, Sequelize);
+const TaskModel = Task(sequelize, Sequelize);
+const CostModel = Cost(sequelize, Sequelize);
+const BudgetModel = Budget(sequelize, Sequelize);
+const MaterialModel = Material(sequelize, Sequelize);
+const LaborModel = Labor(sequelize, Sequelize);
+const EquipmentModel = Equipment(sequelize, Sequelize);
+const CommunicationModel = Communication(sequelize, Sequelize);
+const RiskModel = Risk(sequelize, Sequelize);
+const QualityModel = Quality(sequelize, Sequelize);
+const ProcurementModel = Procurement(sequelize, Sequelize);
+const StakeholderModel = Stakeholder(sequelize, Sequelize);
 
 // Define associations based on PMBOK knowledge areas
 
 // 1. Project Integration Management
-Project.hasMany(Task, { as: 'tasks', foreignKey: 'projectId' });
-Task.belongsTo(Project, { foreignKey: 'projectId' });
+ProjectModel.hasMany(TaskModel, { as: 'tasks', foreignKey: 'projectId' });
+TaskModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
 
-Project.hasMany(ChangeRequest, { as: 'changeRequests', foreignKey: 'projectId' });
-ChangeRequest.belongsTo(Project, { foreignKey: 'projectId' });
+ProjectModel.hasMany(ChangeRequestModel, { as: 'changeRequests', foreignKey: 'projectId' });
+ChangeRequestModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
+
+ProjectModel.hasOne(ProjectCharterModel, { as: 'charter', foreignKey: 'projectId' });
+ProjectCharterModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
+
+ProjectModel.hasOne(ProjectClosureModel, { as: 'closure', foreignKey: 'projectId' });
+ProjectClosureModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
+
+// Project Charter associations
+User.hasMany(ProjectCharter, { as: 'sponsoredCharters', foreignKey: 'projectSponsor' });
+ProjectCharter.belongsTo(User, { as: 'sponsor', foreignKey: 'projectSponsor' });
+
+User.hasMany(ProjectCharter, { as: 'managedCharters', foreignKey: 'projectManager' });
+ProjectCharter.belongsTo(User, { as: 'charterManager', foreignKey: 'projectManager' });
+
+// Project Closure associations
+User.hasMany(ProjectClosure, { as: 'managedClosures', foreignKey: 'projectManager' });
+ProjectClosure.belongsTo(User, { as: 'closureManager', foreignKey: 'projectManager' });
+
+// Change Request associations
+User.hasMany(ChangeRequest, { as: 'requestedChanges', foreignKey: 'requestedBy' });
+ChangeRequest.belongsTo(User, { as: 'requester', foreignKey: 'requestedBy' });
+
+User.hasMany(ChangeRequest, { as: 'approvedChanges', foreignKey: 'approvedBy' });
+ChangeRequest.belongsTo(User, { as: 'approver', foreignKey: 'approvedBy' });
 
 // 2. Project Scope Management
 Project.hasMany(Stakeholder, { as: 'stakeholders', foreignKey: 'projectId' });
@@ -129,20 +183,21 @@ module.exports = {
   sequelize,
   Sequelize,
   User,
-  Project,
-  Task,
+  Project: ProjectModel,
+  Task: TaskModel,
   Resource,
-  Cost,
-  Risk,
-  Quality,
-  Communication,
-  Procurement,
-  Stakeholder,
-  ChangeRequest,
-  Material,
-  Equipment,
-  Labor,
-  Schedule,
-  Budget,
+  Cost: CostModel,
+  Risk: RiskModel,
+  Quality: QualityModel,
+  Communication: CommunicationModel,
+  Procurement: ProcurementModel,
+  Stakeholder: StakeholderModel,
+  ChangeRequest: ChangeRequestModel,
+  ProjectCharter: ProjectCharterModel,
+  ProjectClosure: ProjectClosureModel,
+  Material: MaterialModel,
+  Equipment: EquipmentModel,
+  Labor: LaborModel,
+  Budget: BudgetModel,
   Report
 }; 

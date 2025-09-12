@@ -264,7 +264,7 @@ const getRecentActivities = async (req, res) => {
   try {
     const { limit = 10 } = req.query;
     
-    // Mock recent activities data
+    // Mock recent activities data for now
     const recentActivities = [
       {
         id: 1,
@@ -336,11 +336,84 @@ const getRecentActivities = async (req, res) => {
   }
 };
 
+const getRiskMatrix = async (req, res) => {
+  try {
+    // Mock risk matrix data for now
+    const riskMatrix = [
+      {
+        id: 1,
+        title: 'Foundation Soil Issues',
+        description: 'Unstable soil conditions discovered during excavation',
+        severity: 'HIGH',
+        probability: 'MEDIUM',
+        impact: 'Schedule delay and additional costs',
+        status: 'ACTIVE',
+        mitigationStrategy: 'Soil stabilization and foundation redesign',
+        projectId: 1,
+        projectName: 'Office Building Construction',
+        taskId: 1,
+        taskName: 'Foundation Excavation',
+        assignedTo: 'John Smith',
+        createdAt: new Date('2024-01-15'),
+        updatedAt: new Date('2024-01-20')
+      },
+      {
+        id: 2,
+        title: 'Material Supply Delay',
+        description: 'Steel delivery delayed due to supplier issues',
+        severity: 'MEDIUM',
+        probability: 'HIGH',
+        impact: 'Construction timeline impact',
+        status: 'ACTIVE',
+        mitigationStrategy: 'Alternative supplier identification and expedited shipping',
+        projectId: 1,
+        projectName: 'Office Building Construction',
+        taskId: 2,
+        taskName: 'Steel Frame Installation',
+        assignedTo: 'Mike Johnson',
+        createdAt: new Date('2024-01-10'),
+        updatedAt: new Date('2024-01-18')
+      },
+      {
+        id: 3,
+        title: 'Weather Conditions',
+        description: 'Heavy rainfall affecting outdoor construction activities',
+        severity: 'MEDIUM',
+        probability: 'HIGH',
+        impact: 'Work stoppage and schedule delays',
+        status: 'ACTIVE',
+        mitigationStrategy: 'Indoor work prioritization and weather monitoring',
+        projectId: 2,
+        projectName: 'Residential Complex',
+        taskId: 5,
+        taskName: 'Site Preparation',
+        assignedTo: 'Lisa Davis',
+        createdAt: new Date('2024-01-05'),
+        updatedAt: new Date('2024-01-15')
+      }
+    ];
+
+    res.json({
+      success: true,
+      data: riskMatrix,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Risk matrix error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch risk matrix',
+      error: error.message
+    });
+  }
+};
+
 // Dashboard routes
 router.get('/stats', authenticateToken, getStats);
 router.get('/project-progress', authenticateToken, getProjectProgress);
 router.get('/task-progress', authenticateToken, getTaskProgress);
 router.get('/cost-variance', authenticateToken, getCostVariance);
 router.get('/recent-activities', authenticateToken, getRecentActivities);
+router.get('/risk-matrix', authenticateToken, getRiskMatrix);
 
 module.exports = router;
