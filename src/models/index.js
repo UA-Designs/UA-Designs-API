@@ -16,7 +16,16 @@ const User = require('./User/index')(sequelize, Sequelize);
 const Report = require('./Report/index')(sequelize, Sequelize);
 
 // PMBOK Integration Management
-const { Project, ChangeRequest, ProjectCharter, ProjectClosure } = require('./Integration');
+const { 
+  Project, 
+  ChangeRequest, 
+  ProjectCharter, 
+  ProjectClosure,
+  LessonsLearned,
+  ProjectTemplate,
+  ApprovalWorkflow,
+  ChangeImpact
+} = require('./Integration');
 
 // PMBOK Schedule Management
 const { Task } = require('./Schedule');
@@ -48,6 +57,10 @@ const ProjectModel = Project(sequelize, Sequelize);
 const ChangeRequestModel = ChangeRequest(sequelize, Sequelize);
 const ProjectCharterModel = ProjectCharter(sequelize, Sequelize);
 const ProjectClosureModel = ProjectClosure(sequelize, Sequelize);
+const LessonsLearnedModel = LessonsLearned(sequelize, Sequelize);
+const ProjectTemplateModel = ProjectTemplate(sequelize, Sequelize);
+const ApprovalWorkflowModel = ApprovalWorkflow(sequelize, Sequelize);
+const ChangeImpactModel = ChangeImpact(sequelize, Sequelize);
 const TaskModel = Task(sequelize, Sequelize);
 const CostModel = Cost(sequelize, Sequelize);
 const BudgetModel = Budget(sequelize, Sequelize);
@@ -195,6 +208,10 @@ module.exports = {
   ChangeRequest: ChangeRequestModel,
   ProjectCharter: ProjectCharterModel,
   ProjectClosure: ProjectClosureModel,
+  LessonsLearned: LessonsLearnedModel,
+  ProjectTemplate: ProjectTemplateModel,
+  ApprovalWorkflow: ApprovalWorkflowModel,
+  ChangeImpact: ChangeImpactModel,
   Material: MaterialModel,
   Equipment: EquipmentModel,
   Labor: LaborModel,
