@@ -54,36 +54,21 @@ app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// PMBOK Knowledge Areas Routes - Organized by Knowledge Area
-// 1. Project Integration Management
-app.use('/api/integration', require('./routes/Integration'));
+// Core Project Management Knowledge Areas Routes
+// 1. Project Schedule Management
+app.use('/api/schedule', require('./routes/schedule'));
 
-// 2. Project Scope Management
-app.use('/api/scope', require('./routes/Scope'));
+// 2. Project Cost Management
+app.use('/api/cost', require('./routes/cost'));
 
-// 3. Project Schedule Management
-app.use('/api/schedule', require('./routes/Schedule'));
+// 3. Project Resource Management
+app.use('/api/resources', require('./routes/resources'));
 
-// 4. Project Cost Management
-app.use('/api/cost', require('./routes/Cost'));
+// 4. Project Risk Management
+app.use('/api/risk', require('./routes/risk'));
 
-// 5. Project Quality Management
-app.use('/api/quality', require('./routes/Quality'));
-
-// 6. Project Resource Management
-app.use('/api/resources', require('./routes/Resources'));
-
-// 7. Project Communications Management
-app.use('/api/communications', require('./routes/Communications'));
-
-// 8. Project Risk Management
-app.use('/api/risk', require('./routes/Risk'));
-
-// 9. Project Procurement Management
-app.use('/api/procurement', require('./routes/Procurement'));
-
-// 10. Project Stakeholder Management
-app.use('/api/stakeholders', require('./routes/Stakeholders'));
+// 5. Project Stakeholder Management
+app.use('/api/stakeholders', require('./routes/stakeholders'));
 
 // Authentication and User Management
 app.use('/api/auth', require('./routes/auth'));
@@ -95,11 +80,7 @@ app.use('/api/projects', require('./routes/projects'));
 // Dashboard routes
 app.use('/api/dashboard', require('./routes/dashboard'));
 
-// File uploads
-// app.use('/api/uploads', require('./routes/uploads'));
-
-// Reports and Analytics
-// app.use('/api/reports', require('./routes/reports'));
+// Additional routes for project management
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -107,7 +88,7 @@ app.get('/api/health', (req, res) => {
     status: 'OK',
     timestamp: new Date().toISOString(),
     version: '1.0.0',
-    pmbokAligned: true
+    coreAreas: ['Schedule', 'Cost', 'Resources', 'Risk', 'Stakeholders']
   });
 });
 
@@ -130,8 +111,8 @@ app.use('*', (req, res) => {
 
 const server = app.listen(PORT, () => {
   console.log(`🚀 UA Designs PMS Server running on port ${PORT}`);
-  console.log(`📊 PMBOK-aligned Project Management System`);
-  console.log(`🏗️  Construction Industry Optimized`);
+  console.log(`📊 Core Project Management System`);
+  console.log(`🎯 Focused on: Scheduling, Cost, Resources, Risk, Stakeholders`);
   console.log(`⏰ ${new Date().toISOString()}`);
 });
 

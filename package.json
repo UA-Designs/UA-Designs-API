@@ -1,7 +1,7 @@
 {
   "name": "ua-designs-pms-backend",
   "version": "1.0.0",
-  "description": "Backend API for UA Designs PMBOK-aligned Project Management System",
+  "description": "Backend API for UA Designs Core Project Management System - Focused on Scheduling, Cost, Resources, Risk, and Stakeholders",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

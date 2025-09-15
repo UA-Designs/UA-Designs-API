@@ -31,7 +31,7 @@ const {
 const { Task } = require('./Schedule');
 
 // PMBOK Cost Management
-const { CostModel: Cost, Budget } = require('./Cost');
+const { CostModel: Cost, Budget, Expense, CostCategory } = require('./Cost');
 
 // PMBOK Resource Management
 const { Material, Labor, Equipment } = require('./Resources');
@@ -64,6 +64,8 @@ const ChangeImpactModel = ChangeImpact(sequelize, Sequelize);
 const TaskModel = Task(sequelize, Sequelize);
 const CostModel = Cost(sequelize, Sequelize);
 const BudgetModel = Budget(sequelize, Sequelize);
+const ExpenseModel = Expense(sequelize, Sequelize);
+const CostCategoryModel = CostCategory(sequelize, Sequelize);
 const MaterialModel = Material(sequelize, Sequelize);
 const LaborModel = Labor(sequelize, Sequelize);
 const EquipmentModel = Equipment(sequelize, Sequelize);
@@ -89,108 +91,105 @@ ProjectModel.hasOne(ProjectClosureModel, { as: 'closure', foreignKey: 'projectId
 ProjectClosureModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
 
 // Project Charter associations
-User.hasMany(ProjectCharter, { as: 'sponsoredCharters', foreignKey: 'projectSponsor' });
-ProjectCharter.belongsTo(User, { as: 'sponsor', foreignKey: 'projectSponsor' });
+User.hasMany(ProjectCharterModel, { as: 'sponsoredCharters', foreignKey: 'projectSponsor' });
+ProjectCharterModel.belongsTo(User, { as: 'sponsor', foreignKey: 'projectSponsor' });
 
-User.hasMany(ProjectCharter, { as: 'managedCharters', foreignKey: 'projectManager' });
-ProjectCharter.belongsTo(User, { as: 'charterManager', foreignKey: 'projectManager' });
+User.hasMany(ProjectCharterModel, { as: 'managedCharters', foreignKey: 'projectManager' });
+ProjectCharterModel.belongsTo(User, { as: 'charterManager', foreignKey: 'projectManager' });
 
 // Project Closure associations
-User.hasMany(ProjectClosure, { as: 'managedClosures', foreignKey: 'projectManager' });
-ProjectClosure.belongsTo(User, { as: 'closureManager', foreignKey: 'projectManager' });
+User.hasMany(ProjectClosureModel, { as: 'managedClosures', foreignKey: 'projectManager' });
+ProjectClosureModel.belongsTo(User, { as: 'closureManager', foreignKey: 'projectManager' });
 
 // Change Request associations
-User.hasMany(ChangeRequest, { as: 'requestedChanges', foreignKey: 'requestedBy' });
-ChangeRequest.belongsTo(User, { as: 'requester', foreignKey: 'requestedBy' });
+User.hasMany(ChangeRequestModel, { as: 'requestedChanges', foreignKey: 'requestedBy' });
+ChangeRequestModel.belongsTo(User, { as: 'requester', foreignKey: 'requestedBy' });
 
-User.hasMany(ChangeRequest, { as: 'approvedChanges', foreignKey: 'approvedBy' });
-ChangeRequest.belongsTo(User, { as: 'approver', foreignKey: 'approvedBy' });
+User.hasMany(ChangeRequestModel, { as: 'approvedChanges', foreignKey: 'approvedBy' });
+ChangeRequestModel.belongsTo(User, { as: 'approver', foreignKey: 'approvedBy' });
 
 // 2. Project Scope Management
-Project.hasMany(Stakeholder, { as: 'stakeholders', foreignKey: 'projectId' });
-Stakeholder.belongsTo(Project, { foreignKey: 'projectId' });
+ProjectModel.hasMany(StakeholderModel, { as: 'stakeholders', foreignKey: 'projectId' });
+StakeholderModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
 
 // 3. Project Schedule Management
-Project.hasMany(Schedule, { as: 'schedules', foreignKey: 'projectId' });
-Schedule.belongsTo(Project, { foreignKey: 'projectId' });
-
-Task.hasMany(Schedule, { as: 'schedules', foreignKey: 'taskId' });
-Schedule.belongsTo(Task, { foreignKey: 'taskId' });
+// Task-Project association already defined in Integration Management
 
 // 4. Project Cost Management
-Project.hasMany(Budget, { as: 'budgets', foreignKey: 'projectId' });
-Budget.belongsTo(Project, { foreignKey: 'projectId' });
+ProjectModel.hasMany(BudgetModel, { as: 'budgets', foreignKey: 'projectId' });
+BudgetModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
 
-Project.hasMany(Cost, { as: 'costs', foreignKey: 'projectId' });
-Cost.belongsTo(Project, { foreignKey: 'projectId' });
+ProjectModel.hasMany(CostModel, { as: 'costs', foreignKey: 'projectId' });
+CostModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
 
-Task.hasMany(Cost, { as: 'costs', foreignKey: 'taskId' });
-Cost.belongsTo(Task, { foreignKey: 'taskId' });
+TaskModel.hasMany(CostModel, { as: 'costs', foreignKey: 'taskId' });
+CostModel.belongsTo(TaskModel, { foreignKey: 'taskId' });
 
 // 5. Project Quality Management
-Project.hasMany(Quality, { as: 'qualityChecks', foreignKey: 'projectId' });
-Quality.belongsTo(Project, { foreignKey: 'projectId' });
+ProjectModel.hasMany(QualityModel, { as: 'qualityChecks', foreignKey: 'projectId' });
+QualityModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
 
-Task.hasMany(Quality, { as: 'qualityChecks', foreignKey: 'taskId' });
-Quality.belongsTo(Task, { foreignKey: 'taskId' });
+TaskModel.hasMany(QualityModel, { as: 'qualityChecks', foreignKey: 'taskId' });
+QualityModel.belongsTo(TaskModel, { foreignKey: 'taskId' });
 
 // 6. Project Resource Management
-Project.hasMany(Resource, { as: 'resources', foreignKey: 'projectId' });
-Resource.belongsTo(Project, { foreignKey: 'projectId' });
+ProjectModel.hasMany(Resource, { as: 'resources', foreignKey: 'projectId' });
+Resource.belongsTo(ProjectModel, { foreignKey: 'projectId' });
 
-Project.hasMany(Material, { as: 'materials', foreignKey: 'projectId' });
-Material.belongsTo(Project, { foreignKey: 'projectId' });
+ProjectModel.hasMany(MaterialModel, { as: 'materials', foreignKey: 'projectId' });
+MaterialModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
 
-Project.hasMany(Equipment, { as: 'equipment', foreignKey: 'projectId' });
-Equipment.belongsTo(Project, { foreignKey: 'projectId' });
+ProjectModel.hasMany(EquipmentModel, { as: 'equipment', foreignKey: 'projectId' });
+EquipmentModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
 
-Project.hasMany(Labor, { as: 'labor', foreignKey: 'projectId' });
-Labor.belongsTo(Project, { foreignKey: 'projectId' });
+ProjectModel.hasMany(LaborModel, { as: 'labor', foreignKey: 'projectId' });
+LaborModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
 
-Task.hasMany(Resource, { as: 'resources', foreignKey: 'taskId' });
-Resource.belongsTo(Task, { foreignKey: 'taskId' });
+TaskModel.hasMany(Resource, { as: 'resources', foreignKey: 'taskId' });
+Resource.belongsTo(TaskModel, { foreignKey: 'taskId' });
 
 // 7. Project Communications Management
-Project.hasMany(Communication, { as: 'communications', foreignKey: 'projectId' });
-Communication.belongsTo(Project, { foreignKey: 'projectId' });
+ProjectModel.hasMany(CommunicationModel, { as: 'communications', foreignKey: 'projectId' });
+CommunicationModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
 
-User.hasMany(Communication, { as: 'communications', foreignKey: 'userId' });
-Communication.belongsTo(User, { foreignKey: 'userId' });
+User.hasMany(CommunicationModel, { as: 'communications', foreignKey: 'userId' });
+CommunicationModel.belongsTo(User, { foreignKey: 'userId' });
 
 // 8. Project Risk Management
-Project.hasMany(Risk, { as: 'risks', foreignKey: 'projectId' });
-Risk.belongsTo(Project, { foreignKey: 'projectId' });
+ProjectModel.hasMany(RiskModel, { as: 'risks', foreignKey: 'projectId' });
+RiskModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
 
-Task.hasMany(Risk, { as: 'risks', foreignKey: 'taskId' });
-Risk.belongsTo(Task, { foreignKey: 'taskId' });
+TaskModel.hasMany(RiskModel, { as: 'risks', foreignKey: 'taskId' });
+RiskModel.belongsTo(TaskModel, { foreignKey: 'taskId' });
 
 // 9. Project Procurement Management
-Project.hasMany(Procurement, { as: 'procurements', foreignKey: 'projectId' });
-Procurement.belongsTo(Project, { foreignKey: 'projectId' });
+ProjectModel.hasMany(ProcurementModel, { as: 'procurements', foreignKey: 'projectId' });
+ProcurementModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
 
-Material.hasMany(Procurement, { as: 'procurements', foreignKey: 'materialId' });
-Procurement.belongsTo(Material, { foreignKey: 'materialId' });
+MaterialModel.hasMany(ProcurementModel, { as: 'procurements', foreignKey: 'materialId' });
+ProcurementModel.belongsTo(MaterialModel, { foreignKey: 'materialId' });
 
 // 10. Project Stakeholder Management
-User.hasMany(Stakeholder, { as: 'stakeholderRoles', foreignKey: 'userId' });
-Stakeholder.belongsTo(User, { foreignKey: 'userId' });
+User.hasMany(StakeholderModel, { as: 'stakeholderRoles', foreignKey: 'userId' });
+StakeholderModel.belongsTo(User, { foreignKey: 'userId' });
 
 // Reports and Analytics
-Project.hasMany(Report, { as: 'reports', foreignKey: 'projectId' });
-Report.belongsTo(Project, { foreignKey: 'projectId' });
+ProjectModel.hasMany(Report, { as: 'reports', foreignKey: 'projectId' });
+Report.belongsTo(ProjectModel, { foreignKey: 'projectId' });
 
 User.hasMany(Report, { as: 'reports', foreignKey: 'userId' });
 Report.belongsTo(User, { foreignKey: 'userId' });
 
 // User associations
-User.hasMany(Project, { as: 'managedProjects', foreignKey: 'projectManagerId' });
-Project.belongsTo(User, { as: 'projectManager', foreignKey: 'projectManagerId' });
+User.hasMany(ProjectModel, { as: 'managedProjects', foreignKey: 'projectManagerId' });
+ProjectModel.belongsTo(User, { as: 'projectManager', foreignKey: 'projectManagerId' });
 
-User.hasMany(Task, { as: 'assignedTasks', foreignKey: 'assignedToId' });
-Task.belongsTo(User, { as: 'assignedTo', foreignKey: 'assignedToId' });
+User.hasMany(TaskModel, { as: 'assignedTasks', foreignKey: 'assignedTo' });
+TaskModel.belongsTo(User, { as: 'assignedUser', foreignKey: 'assignedTo' });
 
-User.hasMany(Task, { as: 'createdTasks', foreignKey: 'createdById' });
-Task.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById' });
+// User-Task associations for created tasks (field not yet implemented)
+// User.hasMany(TaskModel, { as: 'createdTasks', foreignKey: 'createdById' });
+// TaskModel.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById' });
 
 module.exports = {
   sequelize,
@@ -216,5 +215,7 @@ module.exports = {
   Equipment: EquipmentModel,
   Labor: LaborModel,
   Budget: BudgetModel,
+  Expense: ExpenseModel,
+  CostCategory: CostCategoryModel,
   Report
 }; 
