@@ -130,6 +130,123 @@ router.get('/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Get project dashboard with all PMBOK core areas
+router.get('/:id/dashboard', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const project = await Project.findByPk(id);
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: 'Project not found'
+      });
+    }
+
+    // Get counts for each PMBOK core area
+    const [
+      taskCount,
+      budgetCount,
+      riskCount,
+      stakeholderCount,
+      materialCount,
+      laborCount,
+      equipmentCount
+    ] = await Promise.all([
+      Task.count({ where: { projectId: id } }),
+      Budget.count({ where: { projectId: id } }),
+      Risk.count({ where: { projectId: id } }),
+      Stakeholder.count({ where: { projectId: id } }),
+      Material.count({ where: { projectId: id } }),
+      Labor.count({ where: { projectId: id } }),
+      Equipment.count({ where: { projectId: id } })
+    ]);
+
+    // Get recent activities
+    const recentTasks = await Task.findAll({
+      where: { projectId: id },
+      order: [['updatedAt', 'DESC']],
+      limit: 5,
+      attributes: ['id', 'name', 'status', 'updatedAt']
+    });
+
+    const recentRisks = await Risk.findAll({
+      where: { projectId: id },
+      order: [['updatedAt', 'DESC']],
+      limit: 5,
+      attributes: ['id', 'title', 'status', 'riskScore', 'updatedAt']
+    });
+
+    const dashboardData = {
+      project: {
+        id: project.id,
+        name: project.name,
+        status: project.status,
+        progress: project.progress || 0,
+        startDate: project.startDate,
+        endDate: project.endDate,
+        budget: project.budget,
+        priority: project.priority,
+        projectType: project.projectType,
+        clientName: project.clientName
+      },
+      pmbokCoreAreas: {
+        schedule: { 
+          count: taskCount, 
+          label: 'Tasks',
+          description: 'Project scheduling and task management'
+        },
+        cost: { 
+          count: budgetCount, 
+          label: 'Budgets',
+          description: 'Budget tracking and cost management'
+        },
+        risk: { 
+          count: riskCount, 
+          label: 'Risks',
+          description: 'Risk assessment and mitigation'
+        },
+        stakeholders: { 
+          count: stakeholderCount, 
+          label: 'Stakeholders',
+          description: 'Stakeholder communication and engagement'
+        },
+        resources: { 
+          count: materialCount + laborCount + equipmentCount, 
+          label: 'Resources',
+          description: 'Resource allocation and management',
+          breakdown: {
+            materials: materialCount,
+            labor: laborCount,
+            equipment: equipmentCount
+          }
+        }
+      },
+      recentActivities: {
+        tasks: recentTasks,
+        risks: recentRisks
+      },
+      projectHealth: {
+        isOverdue: project.endDate ? new Date() > new Date(project.endDate) && project.status !== 'completed' : false,
+        daysRemaining: project.endDate ? Math.ceil((new Date(project.endDate) - new Date()) / (1000 * 60 * 60 * 24)) : null,
+        progress: project.progress || 0
+      }
+    };
+
+    res.json({
+      success: true,
+      data: dashboardData
+    });
+  } catch (error) {
+    console.error('Get project dashboard error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch project dashboard',
+      error: error.message
+    });
+  }
+});
+
 // Create new project
 router.post('/', authenticateToken, authorizeRoles('ADMIN', 'PROJECT_MANAGER'), async (req, res) => {
   try {
