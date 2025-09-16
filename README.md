@@ -9,15 +9,11 @@ This is the backend API for a comprehensive project management system designed s
 ## 🚀 Features
 
 ### PMBOK Knowledge Areas
-- **✅ Integration Management** - Project charter, change requests, project closure
-- **Scope Management** - WBS, requirements, scope validation
 - **Schedule Management** - Gantt charts, critical path, resource allocation
 - **Cost Management** - Budget tracking, cost variance analysis, earned value
-- **Quality Management** - Quality metrics, inspections, audits
 - **Resource Management** - Team allocation, equipment tracking, skills matrix
 - **Communications** - Stakeholder communication, meeting logs, reports
 - **Risk Management** - Risk register, mitigation strategies, contingency planning
-- **Procurement Management** - Vendor management, contracts, purchase orders
 
 ### Construction-Specific Features
 - **Equipment Management** - Equipment tracking, maintenance schedules, utilization
