@@ -23,13 +23,12 @@ const { CostModel: Cost, Budget, Expense, CostCategory } = require('./Cost');
 
 // Resource Management
 const { Material, Labor, Equipment } = require('./Resources');
-const Resource = require('./Resource/index')(sequelize, Sequelize);
 
 // Risk Management
 const { RiskModel: Risk } = require('./Risk');
 
 // Stakeholder Management
-const { Stakeholder } = require('./Stakeholders');
+const Stakeholder = require('./Stakeholder/index');
 
 // Initialize models with sequelize
 const ProjectModel = Project;
@@ -79,8 +78,7 @@ User.hasMany(StakeholderModel, { as: 'stakeholderRoles', foreignKey: 'userId' })
 StakeholderModel.belongsTo(User, { foreignKey: 'userId' });
 
 // 1. Schedule Management
-TaskModel.hasMany(Resource, { as: 'resources', foreignKey: 'taskId' });
-Resource.belongsTo(TaskModel, { foreignKey: 'taskId' });
+// Task-resource associations are handled through Material, Labor, Equipment models
 
 // 2. Cost Management
 BudgetModel.hasMany(ExpenseModel, { as: 'expenses', foreignKey: 'budgetId' });
@@ -108,7 +106,6 @@ module.exports = {
   User,
   Project: ProjectModel,
   Task: TaskModel,
-  Resource,
   Cost: CostModel,
   Risk: RiskModel,
   Stakeholder: StakeholderModel,
