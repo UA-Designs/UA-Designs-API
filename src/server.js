@@ -11,7 +11,16 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+}));
 app.use(cors({
   origin: [
     process.env.FRONTEND_URL || 'http://localhost:3000',
@@ -90,6 +99,465 @@ app.get('/api/health', (req, res) => {
     version: '1.0.0',
     coreAreas: ['Schedule', 'Cost', 'Resources', 'Risk', 'Stakeholders']
   });
+});
+
+// Public API endpoints for web interface (no authentication required)
+app.get('/api/public/projects', async (req, res) => {
+  try {
+    const { Project, User } = require('./models');
+    const projects = await Project.findAll({
+      include: [{
+        model: User,
+        as: 'projectManager',
+        attributes: ['id', 'firstName', 'lastName', 'email']
+      }],
+      order: [['createdAt', 'DESC']]
+    });
+    
+    res.json({
+      success: true,
+      data: projects
+    });
+  } catch (error) {
+    console.error('Public projects error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch projects',
+      error: error.message
+    });
+  }
+});
+
+app.get('/api/public/users', async (req, res) => {
+  try {
+    const { User } = require('./models');
+    const users = await User.findAll({
+      attributes: ['id', 'firstName', 'lastName', 'email', 'role', 'isActive', 'createdAt'],
+      order: [['createdAt', 'DESC']]
+    });
+    
+    res.json({
+      success: true,
+      data: users
+    });
+  } catch (error) {
+    console.error('Public users error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch users',
+      error: error.message
+    });
+  }
+});
+
+app.get('/api/public/tasks', async (req, res) => {
+  try {
+    const { Task, Project } = require('./models');
+    const tasks = await Task.findAll({
+      include: [{
+        model: Project,
+        attributes: ['id', 'name']
+      }],
+      order: [['createdAt', 'DESC']]
+    });
+    
+    res.json({
+      success: true,
+      data: tasks
+    });
+  } catch (error) {
+    console.error('Public tasks error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch tasks',
+      error: error.message
+    });
+  }
+});
+
+// Serve static files and web interface
+app.use(express.static('public'));
+
+// Web interface routes
+app.get('/', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>UA Designs PMS - Backend Dashboard</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+            .container { max-width: 1200px; margin: 0 auto; }
+            .header { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+            .nav { display: flex; gap: 10px; margin-bottom: 20px; }
+            .nav a { background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; }
+            .nav a:hover { background: #2980b9; }
+            .card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+            .status { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+            .status.ok { background: #d4edda; color: #155724; }
+            .data-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            .data-table th, .data-table td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+            .data-table th { background: #f8f9fa; }
+            .loading { text-align: center; padding: 20px; color: #666; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>🏗️ UA Designs Project Management System</h1>
+                <p>Backend Dashboard - Core PMBOK Areas: Scheduling, Cost, Resources, Risk, Stakeholders</p>
+            </div>
+            
+            <div class="nav">
+                <a href="/">Dashboard</a>
+                <a href="/projects">Projects</a>
+                <a href="/users">Users</a>
+                <a href="/tasks">Tasks</a>
+                <a href="/api/health">API Health</a>
+            </div>
+
+            <div class="card">
+                <h2>📊 System Status</h2>
+                <div id="system-status" class="loading">Loading...</div>
+            </div>
+
+            <div class="card">
+                <h2>📈 Quick Stats</h2>
+                <div id="quick-stats" class="loading">Loading...</div>
+            </div>
+        </div>
+
+        <script>
+            // Load system status
+            fetch('/api/health')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('system-status').innerHTML = \`
+                        <p><span class="status ok">✓ ONLINE</span> Server is running</p>
+                        <p><strong>Service:</strong> UA Designs PMS Backend</p>
+                        <p><strong>Timestamp:</strong> \${new Date(data.timestamp).toLocaleString()}</p>
+                        <p><strong>Core Areas:</strong> \${data.coreAreas.join(', ')}</p>
+                    \`;
+                })
+                .catch(error => {
+                    document.getElementById('system-status').innerHTML = '<p style="color: red;">Error loading system status</p>';
+                });
+
+            // Load quick stats
+            Promise.all([
+                fetch('/api/public/projects').then(r => r.json()).catch(() => ({ data: [] })),
+                fetch('/api/public/users').then(r => r.json()).catch(() => ({ data: [] })),
+                fetch('/api/public/tasks').then(r => r.json()).catch(() => ({ data: [] }))
+            ]).then(([projects, users, tasks]) => {
+                const projectCount = projects.data ? projects.data.length : 0;
+                const userCount = users.data ? users.data.length : 0;
+                const taskCount = tasks.data ? tasks.data.length : 0;
+                
+                document.getElementById('quick-stats').innerHTML = \`
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                        <div style="text-align: center;">
+                            <h3 style="margin: 0; color: #3498db;">\${projectCount}</h3>
+                            <p style="margin: 5px 0 0 0;">Projects</p>
+                        </div>
+                        <div style="text-align: center;">
+                            <h3 style="margin: 0; color: #e74c3c;">\${userCount}</h3>
+                            <p style="margin: 5px 0 0 0;">Users</p>
+                        </div>
+                        <div style="text-align: center;">
+                            <h3 style="margin: 0; color: #f39c12;">\${taskCount}</h3>
+                            <p style="margin: 5px 0 0 0;">Tasks</p>
+                        </div>
+                    </div>
+                \`;
+            }).catch(error => {
+                document.getElementById('quick-stats').innerHTML = '<p style="color: red;">Error loading stats</p>';
+            });
+        </script>
+    </body>
+    </html>
+  `);
+});
+
+// Projects page
+app.get('/projects', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Projects - UA Designs PMS</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+            .container { max-width: 1200px; margin: 0 auto; }
+            .header { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+            .nav { display: flex; gap: 10px; margin-bottom: 20px; }
+            .nav a { background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; }
+            .nav a:hover { background: #2980b9; }
+            .card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+            .data-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            .data-table th, .data-table td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+            .data-table th { background: #f8f9fa; }
+            .loading { text-align: center; padding: 20px; color: #666; }
+            .status { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+            .status.planning { background: #fff3cd; color: #856404; }
+            .status.active { background: #d4edda; color: #155724; }
+            .status.completed { background: #d1ecf1; color: #0c5460; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>📋 Projects</h1>
+                <p>All projects in the system</p>
+            </div>
+            
+            <div class="nav">
+                <a href="/">Dashboard</a>
+                <a href="/projects">Projects</a>
+                <a href="/users">Users</a>
+                <a href="/tasks">Tasks</a>
+                <a href="/api/health">API Health</a>
+            </div>
+
+            <div class="card">
+                <h2>📊 Projects List</h2>
+                <div id="projects-list" class="loading">Loading projects...</div>
+            </div>
+        </div>
+
+        <script>
+            fetch('/api/public/projects')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data && data.data.length > 0) {
+                        const table = \`
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Client</th>
+                                        <th>Status</th>
+                                        <th>Start Date</th>
+                                        <th>End Date</th>
+                                        <th>Budget</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    \${data.data.map(project => \`
+                                        <tr>
+                                            <td><strong>\${project.name}</strong></td>
+                                            <td>\${project.clientName || 'N/A'}</td>
+                                            <td><span class="status \${project.status}">\${project.status}</span></td>
+                                            <td>\${project.startDate ? new Date(project.startDate).toLocaleDateString() : 'N/A'}</td>
+                                            <td>\${project.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A'}</td>
+                                            <td>\$\${project.budget ? project.budget.toLocaleString() : '0'}</td>
+                                        </tr>
+                                    \`).join('')}
+                                </tbody>
+                            </table>
+                        \`;
+                        document.getElementById('projects-list').innerHTML = table;
+                    } else {
+                        document.getElementById('projects-list').innerHTML = '<p>No projects found.</p>';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('projects-list').innerHTML = '<p style="color: red;">Error loading projects: ' + error.message + '</p>';
+                });
+        </script>
+    </body>
+    </html>
+  `);
+});
+
+// Users page
+app.get('/users', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Users - UA Designs PMS</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+            .container { max-width: 1200px; margin: 0 auto; }
+            .header { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+            .nav { display: flex; gap: 10px; margin-bottom: 20px; }
+            .nav a { background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; }
+            .nav a:hover { background: #2980b9; }
+            .card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+            .data-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            .data-table th, .data-table td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+            .data-table th { background: #f8f9fa; }
+            .loading { text-align: center; padding: 20px; color: #666; }
+            .role { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+            .role.admin { background: #f8d7da; color: #721c24; }
+            .role.project_manager { background: #d4edda; color: #155724; }
+            .role.team_member { background: #d1ecf1; color: #0c5460; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>👥 Users</h1>
+                <p>All users in the system</p>
+            </div>
+            
+            <div class="nav">
+                <a href="/">Dashboard</a>
+                <a href="/projects">Projects</a>
+                <a href="/users">Users</a>
+                <a href="/tasks">Tasks</a>
+                <a href="/api/health">API Health</a>
+            </div>
+
+            <div class="card">
+                <h2>👤 Users List</h2>
+                <div id="users-list" class="loading">Loading users...</div>
+            </div>
+        </div>
+
+        <script>
+            fetch('/api/public/users')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data && data.data.length > 0) {
+                        const table = \`
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Role</th>
+                                        <th>Status</th>
+                                        <th>Created</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    \${data.data.map(user => \`
+                                        <tr>
+                                            <td><strong>\${user.firstName} \${user.lastName}</strong></td>
+                                            <td>\${user.email}</td>
+                                            <td><span class="role \${user.role}">\${user.role}</span></td>
+                                            <td>\${user.isActive ? 'Active' : 'Inactive'}</td>
+                                            <td>\${new Date(user.createdAt).toLocaleDateString()}</td>
+                                        </tr>
+                                    \`).join('')}
+                                </tbody>
+                            </table>
+                        \`;
+                        document.getElementById('users-list').innerHTML = table;
+                    } else {
+                        document.getElementById('users-list').innerHTML = '<p>No users found.</p>';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('users-list').innerHTML = '<p style="color: red;">Error loading users: ' + error.message + '</p>';
+                });
+        </script>
+    </body>
+    </html>
+  `);
+});
+
+// Tasks page
+app.get('/tasks', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Tasks - UA Designs PMS</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+            .container { max-width: 1200px; margin: 0 auto; }
+            .header { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+            .nav { display: flex; gap: 10px; margin-bottom: 20px; }
+            .nav a { background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; }
+            .nav a:hover { background: #2980b9; }
+            .card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+            .data-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            .data-table th, .data-table td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+            .data-table th { background: #f8f9fa; }
+            .loading { text-align: center; padding: 20px; color: #666; }
+            .priority { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+            .priority.low { background: #d4edda; color: #155724; }
+            .priority.medium { background: #fff3cd; color: #856404; }
+            .priority.high { background: #f8d7da; color: #721c24; }
+            .priority.critical { background: #f5c6cb; color: #721c24; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>✅ Tasks</h1>
+                <p>All tasks in the system</p>
+            </div>
+            
+            <div class="nav">
+                <a href="/">Dashboard</a>
+                <a href="/projects">Projects</a>
+                <a href="/users">Users</a>
+                <a href="/tasks">Tasks</a>
+                <a href="/api/health">API Health</a>
+            </div>
+
+            <div class="card">
+                <h2>📝 Tasks List</h2>
+                <div id="tasks-list" class="loading">Loading tasks...</div>
+            </div>
+        </div>
+
+        <script>
+            fetch('/api/public/tasks')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data && data.data.length > 0) {
+                        const table = \`
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Task Name</th>
+                                        <th>Project</th>
+                                        <th>Priority</th>
+                                        <th>Status</th>
+                                        <th>Start Date</th>
+                                        <th>End Date</th>
+                                        <th>Duration</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    \${data.data.map(task => \`
+                                        <tr>
+                                            <td><strong>\${task.name}</strong></td>
+                                            <td>\${task.projectId || 'N/A'}</td>
+                                            <td><span class="priority \${task.priority}">\${task.priority}</span></td>
+                                            <td>\${task.status || 'Not Started'}</td>
+                                            <td>\${task.startDate ? new Date(task.startDate).toLocaleDateString() : 'N/A'}</td>
+                                            <td>\${task.endDate ? new Date(task.endDate).toLocaleDateString() : 'N/A'}</td>
+                                            <td>\${task.duration || 'N/A'} days</td>
+                                        </tr>
+                                    \`).join('')}
+                                </tbody>
+                            </table>
+                        \`;
+                        document.getElementById('tasks-list').innerHTML = table;
+                    } else {
+                        document.getElementById('tasks-list').innerHTML = '<p>No tasks found.</p>';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('tasks-list').innerHTML = '<p style="color: red;">Error loading tasks: ' + error.message + '</p>';
+                });
+        </script>
+    </body>
+    </html>
+  `);
 });
 
 // Error handling middleware

@@ -253,43 +253,22 @@ router.post('/', authenticateToken, authorizeRoles('ADMIN', 'PROJECT_MANAGER'), 
     const {
       name,
       description,
-      projectType,
+      startDate,
+      endDate,
+      budget,
+      projectManagerId,
       clientName,
       clientEmail,
       clientPhone,
-      clientAddress,
-      projectLocation,
-      startDate,
-      plannedEndDate,
-      budget,
-      estimatedCost,
-      scope,
-      deliverables,
-      exclusions,
-      constraints,
-      assumptions,
-      qualityObjectives,
-      resourceRequirements,
-      riskRegister,
-      communicationPlan,
-      procurementPlan,
-      stakeholderRegister,
-      buildingPermits,
-      siteConditions,
-      weatherConsiderations,
-      safetyRequirements,
+      location,
+      projectType,
       priority
     } = req.body;
 
     // Validate required fields
     const missingFields = [];
     if (!name) missingFields.push('name');
-    if (!projectType) missingFields.push('projectType');
     if (!clientName) missingFields.push('clientName');
-    if (!projectLocation) missingFields.push('projectLocation');
-    if (!startDate) missingFields.push('startDate');
-    if (!plannedEndDate) missingFields.push('plannedEndDate');
-    if (!budget) missingFields.push('budget');
     
     if (missingFields.length > 0) {
       return res.status(400).json({
@@ -299,74 +278,35 @@ router.post('/', authenticateToken, authorizeRoles('ADMIN', 'PROJECT_MANAGER'), 
       });
     }
 
-    // Generate project number
-    const year = new Date().getFullYear();
-    const month = String(new Date().getMonth() + 1).padStart(2, '0');
-    const projectCount = await Project.count({
-      where: {
-        projectNumber: {
-          [Op.like]: `UA-${year}${month}%`
-        }
-      }
-    });
-    const projectNumber = `UA-${year}${month}${String(projectCount + 1).padStart(3, '0')}`;
-
     // Create project
     const project = await Project.create({
-      projectNumber,
       name,
       description,
-      projectType,
-      status: 'PROPOSAL',
-      phase: 'INITIATION',
-      projectManagerId: req.user.id,
+      startDate: startDate ? new Date(startDate) : null,
+      endDate: endDate ? new Date(endDate) : null,
+      budget: budget ? parseFloat(budget) : 0,
+      projectManagerId: projectManagerId || req.user.id,
       clientName,
       clientEmail,
       clientPhone,
-      clientAddress,
-      projectLocation,
-      startDate: new Date(startDate),
-      plannedEndDate: new Date(plannedEndDate),
-      budget: parseFloat(budget),
-      estimatedCost: parseFloat(estimatedCost || budget),
-      actualCost: 0,
-      scope: scope || {},
-      deliverables: deliverables || [],
-      exclusions: exclusions || [],
-      constraints: constraints || [],
-      assumptions: assumptions || [],
-      qualityObjectives: qualityObjectives || [],
-      resourceRequirements: resourceRequirements || {
-        materials: [],
-        equipment: [],
-        labor: [],
-        subcontractors: []
-      },
-      riskRegister: riskRegister || [],
-      communicationPlan: communicationPlan || {
-        stakeholders: [],
-        communicationChannels: [],
-        reportingSchedule: [],
-        escalationProcedures: []
-      },
-      procurementPlan: procurementPlan || {
-        materials: [],
-        equipment: [],
-        services: [],
-        subcontractors: []
-      },
-      stakeholderRegister: stakeholderRegister || [],
-      buildingPermits: buildingPermits || [],
-      siteConditions: siteConditions || {},
-      weatherConsiderations: weatherConsiderations || {},
-      safetyRequirements: safetyRequirements || [],
-      priority: priority || 'MEDIUM'
+      location,
+      projectType: projectType || 'residential',
+      priority: priority || 'medium'
+    });
+
+    // Fetch the created project with project manager details
+    const projectWithManager = await Project.findByPk(project.id, {
+      include: [{
+        model: User,
+        as: 'projectManager',
+        attributes: ['id', 'firstName', 'lastName', 'email']
+      }]
     });
 
     res.status(201).json({
       success: true,
       message: 'Project created successfully',
-      data: { project }
+      data: projectWithManager
     });
   } catch (error) {
     console.error('Create project error:', error);
