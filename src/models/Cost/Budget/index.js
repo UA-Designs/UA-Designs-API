@@ -5,6 +5,14 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true
     },
+    projectId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: 'projects',
+        key: 'id'
+      }
+    },
     name: {
       type: DataTypes.STRING,
       allowNull: false
@@ -28,7 +36,11 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     tableName: 'budgets',
     timestamps: true,
-    paranoid: true
+    paranoid: true,
+    indexes: [
+      { fields: ['projectId'] },
+      { fields: ['status'] }
+    ]
   });
 
   return Budget;

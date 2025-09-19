@@ -21,9 +21,19 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       defaultValue: 'USD'
     },
+    // Legacy category for quick filtering
     category: {
       type: DataTypes.ENUM('MATERIAL', 'LABOR', 'EQUIPMENT', 'OVERHEAD', 'SUBCONTRACTOR', 'PERMITS', 'OTHER'),
       allowNull: false
+    },
+    // New relational category
+    categoryId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'cost_categories',
+        key: 'id'
+      }
     },
     subcategory: {
       type: DataTypes.STRING,
@@ -62,6 +72,14 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
       references: {
         model: 'tasks',
+        key: 'id'
+      }
+    },
+    budgetId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'budgets',
         key: 'id'
       }
     },
@@ -104,24 +122,14 @@ module.exports = (sequelize, DataTypes) => {
     timestamps: true,
     paranoid: true,
     indexes: [
-      {
-        fields: ['projectId']
-      },
-      {
-        fields: ['taskId']
-      },
-      {
-        fields: ['category']
-      },
-      {
-        fields: ['status']
-      },
-      {
-        fields: ['date']
-      },
-      {
-        fields: ['submittedBy']
-      }
+      { fields: ['projectId'] },
+      { fields: ['taskId'] },
+      { fields: ['budgetId'] },
+      { fields: ['category'] },
+      { fields: ['categoryId'] },
+      { fields: ['status'] },
+      { fields: ['date'] },
+      { fields: ['submittedBy'] }
     ]
   });
 
