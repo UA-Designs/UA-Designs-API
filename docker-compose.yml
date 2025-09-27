@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: ua-designs-db
+    environment:
+      POSTGRES_DB: ua_designs_pms
+      POSTGRES_USER: team_user
+      POSTGRES_PASSWORD: team_password123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  adminer:
+    image: adminer
+    container_name: ua-designs-adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

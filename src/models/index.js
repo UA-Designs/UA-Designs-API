@@ -16,7 +16,7 @@ const User = require('./User/index')(sequelize, Sequelize);
 const Project = require('./Project/index')(sequelize, Sequelize);
 
 // Schedule Management
-const { Task } = require('./Schedule');
+const { Task, TaskDependency } = require('./Schedule');
 
 // Cost Management
 const { CostModel: Cost, Budget, Expense, CostCategory } = require('./Cost');
@@ -33,6 +33,7 @@ const Stakeholder = require('./Stakeholder/index');
 // Initialize models with sequelize
 const ProjectModel = Project;
 const TaskModel = Task(sequelize, Sequelize);
+const TaskDependencyModel = TaskDependency(sequelize, Sequelize);
 const CostModel = Cost(sequelize, Sequelize);
 const BudgetModel = Budget(sequelize, Sequelize);
 const ExpenseModel = Expense(sequelize, Sequelize);
@@ -78,6 +79,12 @@ User.hasMany(StakeholderModel, { as: 'stakeholderRoles', foreignKey: 'userId' })
 StakeholderModel.belongsTo(User, { foreignKey: 'userId' });
 
 // 1. Schedule Management
+// Task associations
+TaskModel.hasMany(TaskDependencyModel, { as: 'predecessorDependencies', foreignKey: 'predecessorTaskId' });
+TaskModel.hasMany(TaskDependencyModel, { as: 'successorDependencies', foreignKey: 'successorTaskId' });
+TaskDependencyModel.belongsTo(TaskModel, { as: 'predecessorTask', foreignKey: 'predecessorTaskId' });
+TaskDependencyModel.belongsTo(TaskModel, { as: 'successorTask', foreignKey: 'successorTaskId' });
+
 // Task-resource associations are handled through Material, Labor, Equipment models
 
 // 2. Cost Management
@@ -106,6 +113,7 @@ module.exports = {
   User,
   Project: ProjectModel,
   Task: TaskModel,
+  TaskDependency: TaskDependencyModel,
   Cost: CostModel,
   Risk: RiskModel,
   Stakeholder: StakeholderModel,

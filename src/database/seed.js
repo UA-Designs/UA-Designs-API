@@ -1,5 +1,5 @@
 const bcrypt = require('bcryptjs');
-const { User, Project, Task } = require('../models');
+const { User, Project, Task, TaskDependency } = require('../models');
 
 async function seed() {
   try {
@@ -74,14 +74,14 @@ async function seed() {
     // Create sample tasks (check if exist first)
     let task1 = await Task.findOne({ where: { name: 'Foundation Work' } });
     if (!task1) {
-      await Task.create({
+      task1 = await Task.create({
         name: 'Foundation Work',
         description: 'Excavation and foundation construction',
         projectId: project1.id,
         status: 'COMPLETED',
         priority: 'HIGH',
-        plannedStartDate: new Date('2024-01-20'),
-        plannedEndDate: new Date('2024-02-15'),
+        startDate: new Date('2024-01-20'),
+        endDate: new Date('2024-02-15'),
         actualStartDate: new Date('2024-01-20'),
         actualEndDate: new Date('2024-02-10'),
         duration: 26,
@@ -97,14 +97,14 @@ async function seed() {
     
     let task2 = await Task.findOne({ where: { name: 'Framing Work' } });
     if (!task2) {
-      await Task.create({
+      task2 = await Task.create({
         name: 'Framing Work',
         description: 'Structural framing and roof installation',
         projectId: project1.id,
         status: 'IN_PROGRESS',
         priority: 'HIGH',
-        plannedStartDate: new Date('2024-02-16'),
-        plannedEndDate: new Date('2024-04-15'),
+        startDate: new Date('2024-02-16'),
+        endDate: new Date('2024-04-15'),
         actualStartDate: new Date('2024-02-12'),
         duration: 59,
         plannedCost: 300000,
@@ -119,14 +119,14 @@ async function seed() {
     
     let task3 = await Task.findOne({ where: { name: 'Site Preparation' } });
     if (!task3) {
-      await Task.create({
+      task3 = await Task.create({
         name: 'Site Preparation',
         description: 'Site clearing and preparation for construction',
         projectId: project2.id,
         status: 'NOT_STARTED',
         priority: 'MEDIUM',
-        plannedStartDate: new Date('2024-03-15'),
-        plannedEndDate: new Date('2024-04-15'),
+        startDate: new Date('2024-03-15'),
+        endDate: new Date('2024-04-15'),
         duration: 31,
         plannedCost: 80000,
         progress: 0,
@@ -136,11 +136,120 @@ async function seed() {
     } else {
       console.log('📋 Task already exists: Site Preparation');
     }
+
+    // Create additional tasks for better dependency examples
+    let task4 = await Task.findOne({ where: { name: 'Electrical Work' } });
+    if (!task4) {
+      task4 = await Task.create({
+        name: 'Electrical Work',
+        description: 'Electrical installation and wiring',
+        projectId: project1.id,
+        status: 'NOT_STARTED',
+        priority: 'HIGH',
+        startDate: new Date('2024-04-16'),
+        endDate: new Date('2024-06-15'),
+        duration: 60,
+        plannedCost: 200000,
+        progress: 0,
+        assignedTo: adminUser.id
+      });
+      console.log('📋 Created task: Electrical Work');
+    } else {
+      console.log('📋 Task already exists: Electrical Work');
+    }
+
+    let task5 = await Task.findOne({ where: { name: 'Plumbing Work' } });
+    if (!task5) {
+      task5 = await Task.create({
+        name: 'Plumbing Work',
+        description: 'Plumbing installation and fixtures',
+        projectId: project1.id,
+        status: 'NOT_STARTED',
+        priority: 'HIGH',
+        startDate: new Date('2024-04-16'),
+        endDate: new Date('2024-06-15'),
+        duration: 60,
+        plannedCost: 180000,
+        progress: 0,
+        assignedTo: adminUser.id
+      });
+      console.log('📋 Created task: Plumbing Work');
+    } else {
+      console.log('📋 Task already exists: Plumbing Work');
+    }
+
+    // Create sample task dependencies
+    const existingDependency1 = await TaskDependency.findOne({
+      where: {
+        predecessorTaskId: task1.id,
+        successorTaskId: task2.id
+      }
+    });
+
+    if (!existingDependency1) {
+      await TaskDependency.create({
+        predecessorTaskId: task1.id,
+        successorTaskId: task2.id,
+        dependencyType: 'FINISH_TO_START',
+        lag: 0,
+        description: 'Foundation must be completed before framing can begin',
+        isHardDependency: true,
+        createdBy: adminUser.id
+      });
+      console.log('🔗 Created dependency: Foundation Work → Framing Work');
+    } else {
+      console.log('🔗 Dependency already exists: Foundation Work → Framing Work');
+    }
+
+    const existingDependency2 = await TaskDependency.findOne({
+      where: {
+        predecessorTaskId: task2.id,
+        successorTaskId: task4.id
+      }
+    });
+
+    if (!existingDependency2) {
+      await TaskDependency.create({
+        predecessorTaskId: task2.id,
+        successorTaskId: task4.id,
+        dependencyType: 'FINISH_TO_START',
+        lag: 1,
+        description: 'Framing must be completed before electrical work can begin',
+        isHardDependency: true,
+        createdBy: adminUser.id
+      });
+      console.log('🔗 Created dependency: Framing Work → Electrical Work');
+    } else {
+      console.log('🔗 Dependency already exists: Framing Work → Electrical Work');
+    }
+
+    const existingDependency3 = await TaskDependency.findOne({
+      where: {
+        predecessorTaskId: task2.id,
+        successorTaskId: task5.id
+      }
+    });
+
+    if (!existingDependency3) {
+      await TaskDependency.create({
+        predecessorTaskId: task2.id,
+        successorTaskId: task5.id,
+        dependencyType: 'FINISH_TO_START',
+        lag: 1,
+        description: 'Framing must be completed before plumbing work can begin',
+        isHardDependency: true,
+        createdBy: adminUser.id
+      });
+      console.log('🔗 Created dependency: Framing Work → Plumbing Work');
+    } else {
+      console.log('🔗 Dependency already exists: Framing Work → Plumbing Work');
+    }
     
     console.log('✅ Database seeding completed successfully!');
     console.log('👤 Created admin user: admin@uadesigns.com / admin123');
     console.log('🏗️  Created 2 sample projects');
-    console.log('📋 Created 3 sample tasks');
+    console.log('📋 Created 5 sample tasks');
+    console.log('🔗 Created 3 sample task dependencies');
     
     process.exit(0);
   } catch (error) {

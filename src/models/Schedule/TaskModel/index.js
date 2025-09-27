@@ -110,6 +110,21 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.JSON,
       allowNull: true,
       comment: 'Array of file attachments'
+    },
+    isCritical: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      comment: 'Whether this task is on the critical path'
+    },
+    totalFloat: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      comment: 'Total float time in days'
+    },
+    freeFloat: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      comment: 'Free float time in days'
     }
   }, {
     tableName: 'tasks',

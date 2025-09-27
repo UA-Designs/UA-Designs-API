@@ -61,6 +61,83 @@ cp env.example .env
 # Edit .env with your configuration
 ```
 
+## 👥 Team Setup (Quick Start for Group Members)
+
+### For New Team Members
+
+1. **Clone the repository**:
+```bash
+git clone https://github.com/UA-Designs/UA-Designs-API.git
+cd UA-Designs-API
+```
+
+2. **Install dependencies**:
+```bash
+npm install
+```
+
+3. **Set up team environment**:
+```bash
+# Copy team environment file
+cp env.team .env
+```
+
+4. **Choose your database option**:
+
+#### Option A: SQLite (Simplest for Development)
+```bash
+# No additional setup needed - SQLite file included
+```
+
+#### Option B: Shared PostgreSQL with Docker (Recommended)
+```bash
+# Start shared database
+docker-compose up -d
+
+# Access database admin panel at http://localhost:8080
+# Login: team_user / team_password123
+```
+
+#### Option C: Cloud Database (Supabase)
+1. Get connection details from your team lead
+2. Update the `.env` file with the provided credentials
+
+5. **Run database migration**:
+```bash
+node src/database/migrate.js
+```
+
+6. **Seed initial data** (optional):
+```bash
+node src/database/seed.js
+```
+
+7. **Start the development server**:
+```bash
+npm start
+```
+
+The API will be available at `http://localhost:5000`
+
+### Database Access Options
+
+| Option | Difficulty | Best For | Setup Time |
+|--------|------------|----------|------------|
+| SQLite | ⭐ Easy | Solo development | 1 minute |
+| Docker PostgreSQL | ⭐⭐ Medium | Local team development | 5 minutes |
+| Cloud Database | ⭐⭐⭐ Advanced | Remote team collaboration | 10 minutes |
+
+### Troubleshooting
+
+**If you get permission errors when pushing to GitHub:**
+- Ask your team lead to add you as a collaborator to the repository
+- Or use the "Create Fork" option in VS Code and work with pull requests
+
+**If database connection fails:**
+- Check your `.env` file has the correct database credentials
+- Ensure the database server is running (for PostgreSQL options)
+- Verify your internet connection (for cloud databases)
+
 #### Environment Variables
 Create a `.env` file in the root directory with the following variables:
 

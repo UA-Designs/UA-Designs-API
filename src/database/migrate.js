@@ -12,6 +12,7 @@ async function migrate() {
     console.log('   - users');
     console.log('   - projects');
     console.log('   - tasks');
+    console.log('   - task_dependencies');
     console.log('   - resources');
     console.log('   - costs');
     console.log('   - risks');
