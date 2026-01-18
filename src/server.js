@@ -7,6 +7,9 @@ const rateLimit = require('express-rate-limit');
 const slowDown = require('express-slow-down');
 require('dotenv').config();
 
+// Import sequelize for database initialization
+const { sequelize } = require('./models');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -577,20 +580,34 @@ app.use('*', (req, res) => {
   });
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`🚀 UA Designs PMS Server running on port ${PORT}`);
-  console.log(`📊 Core Project Management System`);
-  console.log(`🎯 Focused on: Scheduling, Cost, Resources, Risk, Stakeholders`);
-  console.log(`⏰ ${new Date().toISOString()}`);
-});
+// Initialize database and start server
+async function startServer() {
+  try {
+    // Sync database without dropping tables (preserves data)
+    await sequelize.sync({ alter: false });
+    console.log('✅ Database connected and synced successfully');
+    
+    const server = app.listen(PORT, () => {
+      console.log(`🚀 UA Designs PMS Server running on port ${PORT}`);
+      console.log(`📊 Core Project Management System`);
+      console.log(`🎯 Focused on: Scheduling, Cost, Resources, Risk, Stakeholders`);
+      console.log(`⏰ ${new Date().toISOString()}`);
+    });
 
-// Handle server errors
-server.on('error', (error) => {
-  console.error('Server error:', error);
-  if (error.code === 'EADDRINUSE') {
-    console.error(`Port ${PORT} is already in use`);
+    // Handle server errors
+    server.on('error', (error) => {
+      console.error('Server error:', error);
+      if (error.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} is already in use`);
+      }
+    });
+  } catch (error) {
+    console.error('❌ Failed to connect to database:', error);
+    process.exit(1);
   }
-});
+}
+
+startServer();
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {

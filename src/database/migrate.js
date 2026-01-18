@@ -2,13 +2,23 @@ const { sequelize } = require('../models');
 
 async function migrate() {
   try {
-    console.log('🔄 Starting database migration...');
+    // Check for --force flag to drop and recreate tables
+    const forceMode = process.argv.includes('--force');
+    
+    if (forceMode) {
+      console.log('⚠️  WARNING: Running migration in FORCE mode - all data will be deleted!');
+      console.log('🔄 Starting database migration with force: true...');
+    } else {
+      console.log('🔄 Starting database migration (alter mode - preserving data)...');
+    }
     
     // Sync all models with database
-    await sequelize.sync({ force: true });
+    // force: true drops and recreates tables (data loss!)
+    // alter: true modifies tables to match models (preserves data)
+    await sequelize.sync({ force: forceMode, alter: !forceMode });
     
     console.log('✅ Database migration completed successfully!');
-    console.log('📊 Tables created:');
+    console.log('📊 Tables synced:');
     console.log('   - users');
     console.log('   - projects');
     console.log('   - tasks');
@@ -27,6 +37,10 @@ async function migrate() {
     console.log('   - budgets');
     console.log('   - reports');
     console.log('   - change_requests');
+    
+    if (!forceMode) {
+      console.log('\n💡 Tip: Use --force flag to drop and recreate all tables (npm run migrate -- --force)');
+    }
     
     process.exit(0);
   } catch (error) {
