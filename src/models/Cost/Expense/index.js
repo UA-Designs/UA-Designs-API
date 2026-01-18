@@ -57,6 +57,14 @@ module.exports = (sequelize, DataTypes) => {
         key: 'id'
       }
     },
+    budgetId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'budgets',
+        key: 'id'
+      }
+    },
     taskId: {
       type: DataTypes.UUID,
       allowNull: true,
@@ -65,9 +73,17 @@ module.exports = (sequelize, DataTypes) => {
         key: 'id'
       }
     },
+    categoryId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'cost_categories',
+        key: 'id'
+      }
+    },
     submittedBy: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: 'users',
         key: 'id'
@@ -83,6 +99,46 @@ module.exports = (sequelize, DataTypes) => {
     },
     approvedAt: {
       type: DataTypes.DATE,
+      allowNull: true
+    },
+    approvalNotes: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    rejectedBy: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
+    },
+    rejectedAt: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    rejectionReason: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    paidAt: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    paidBy: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
+    },
+    paymentReference: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    paymentMethod: {
+      type: DataTypes.STRING,
       allowNull: true
     },
     attachments: {
