@@ -5,6 +5,38 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true
     },
+    projectId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: 'projects',
+        key: 'id'
+      }
+    },
+    taskId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'tasks',
+        key: 'id'
+      }
+    },
+    budgetId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'budgets',
+        key: 'id'
+      }
+    },
+    categoryId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'cost_categories',
+        key: 'id'
+      }
+    },
     name: {
       type: DataTypes.STRING,
       allowNull: false
@@ -32,6 +64,30 @@ module.exports = (sequelize, DataTypes) => {
     status: {
       type: DataTypes.ENUM('PENDING', 'APPROVED', 'REJECTED', 'PAID'),
       defaultValue: 'PENDING'
+    },
+    createdBy: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
+    },
+    approvedBy: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
+    },
+    approvedAt: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    notes: {
+      type: DataTypes.TEXT,
+      allowNull: true
     }
   }, {
     tableName: 'costs',
