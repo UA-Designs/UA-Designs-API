@@ -51,7 +51,13 @@ ProjectModel.hasMany(TaskModel, { as: 'tasks', foreignKey: 'projectId' });
 TaskModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
 
 ProjectModel.hasMany(BudgetModel, { as: 'budgets', foreignKey: 'projectId' });
-BudgetModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
+BudgetModel.belongsTo(ProjectModel, { as: 'project', foreignKey: 'projectId' });
+
+ProjectModel.hasMany(ExpenseModel, { as: 'expenses', foreignKey: 'projectId' });
+ExpenseModel.belongsTo(ProjectModel, { as: 'project', foreignKey: 'projectId' });
+
+ProjectModel.hasMany(CostModel, { as: 'costs', foreignKey: 'projectId' });
+CostModel.belongsTo(ProjectModel, { as: 'project', foreignKey: 'projectId' });
 
 ProjectModel.hasMany(RiskModel, { as: 'risks', foreignKey: 'projectId' });
 RiskModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
@@ -89,12 +95,18 @@ TaskDependencyModel.belongsTo(TaskModel, { as: 'successorTask', foreignKey: 'suc
 
 // 2. Cost Management
 BudgetModel.hasMany(ExpenseModel, { as: 'expenses', foreignKey: 'budgetId' });
-ExpenseModel.belongsTo(BudgetModel, { foreignKey: 'budgetId' });
+ExpenseModel.belongsTo(BudgetModel, { as: 'budget', foreignKey: 'budgetId' });
+
+BudgetModel.hasMany(CostModel, { as: 'costs', foreignKey: 'budgetId' });
+CostModel.belongsTo(BudgetModel, { foreignKey: 'budgetId' });
 
 CostCategoryModel.hasMany(ExpenseModel, { as: 'expenses', foreignKey: 'categoryId' });
-ExpenseModel.belongsTo(CostCategoryModel, { foreignKey: 'categoryId' });
+ExpenseModel.belongsTo(CostCategoryModel, { as: 'costCategory', foreignKey: 'categoryId' });
 
-TaskModel.hasMany(CostModel, { as: 'costs', foreignKey: 'taskId' });
+CostCategoryModel.hasMany(CostModel, { as: 'costs', foreignKey: 'categoryId' });
+CostModel.belongsTo(CostCategoryModel, { as: 'costCategory', foreignKey: 'categoryId' });
+
+TaskModel.hasMany(CostModel, { as: 'taskCosts', foreignKey: 'taskId' });
 CostModel.belongsTo(TaskModel, { foreignKey: 'taskId' });
 
 // 3. Resource Management
