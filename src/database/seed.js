@@ -1,5 +1,5 @@
 const bcrypt = require('bcryptjs');
-const { User, Project, Task, TaskDependency } = require('../models');
+const { User, Project, Task, TaskDependency, Risk, RiskMitigation, RiskCategory } = require('../models');
 
 async function seed() {
   try {
@@ -244,12 +244,224 @@ async function seed() {
     } else {
       console.log('🔗 Dependency already exists: Framing Work → Plumbing Work');
     }
+
+    // Create sample risk categories
+    let safetyCategory = await RiskCategory.findOne({ where: { name: 'Safety' } });
+    if (!safetyCategory) {
+      safetyCategory = await RiskCategory.create({
+        name: 'Safety',
+        description: 'Risks related to worker and site safety',
+        color: '#EF4444',
+        icon: 'shield-exclamation',
+        sortOrder: 1
+      });
+      console.log('📁 Created risk category: Safety');
+    }
+
+    let technicalCategory = await RiskCategory.findOne({ where: { name: 'Technical' } });
+    if (!technicalCategory) {
+      technicalCategory = await RiskCategory.create({
+        name: 'Technical',
+        description: 'Risks related to technical requirements and specifications',
+        color: '#3B82F6',
+        icon: 'cog',
+        sortOrder: 2
+      });
+      console.log('📁 Created risk category: Technical');
+    }
+
+    let environmentalCategory = await RiskCategory.findOne({ where: { name: 'Environmental' } });
+    if (!environmentalCategory) {
+      environmentalCategory = await RiskCategory.create({
+        name: 'Environmental',
+        description: 'Risks related to weather and environmental conditions',
+        color: '#10B981',
+        icon: 'cloud',
+        sortOrder: 3
+      });
+      console.log('📁 Created risk category: Environmental');
+    }
+
+    let financialCategory = await RiskCategory.findOne({ where: { name: 'Financial' } });
+    if (!financialCategory) {
+      financialCategory = await RiskCategory.create({
+        name: 'Financial',
+        description: 'Risks related to budget and cost overruns',
+        color: '#F59E0B',
+        icon: 'currency-dollar',
+        sortOrder: 4
+      });
+      console.log('📁 Created risk category: Financial');
+    }
+
+    // Create sample risks
+    let risk1 = await Risk.findOne({ where: { title: 'Adverse Weather Conditions' } });
+    if (!risk1) {
+      risk1 = await Risk.create({
+        title: 'Adverse Weather Conditions',
+        description: 'Severe weather may delay outdoor construction activities and impact project schedule',
+        category: 'ENVIRONMENTAL',
+        categoryId: environmentalCategory.id,
+        probability: 0.6,
+        impact: 0.7,
+        status: 'IDENTIFIED',
+        riskType: 'THREAT',
+        projectId: project1.id,
+        identifiedBy: adminUser.id,
+        owner: adminUser.id,
+        potentialCostImpact: 50000,
+        potentialScheduleImpact: 14,
+        triggers: 'Weather forecast showing storms, Temperature drops below freezing',
+        mitigationStrategy: 'Monitor weather forecasts, Schedule weather-sensitive work during favorable periods',
+        contingencyPlan: 'Have indoor work ready as backup, Acquire weather protection equipment'
+      });
+      console.log('⚠️  Created risk: Adverse Weather Conditions');
+    }
+
+    let risk2 = await Risk.findOne({ where: { title: 'Material Supply Delays' } });
+    if (!risk2) {
+      risk2 = await Risk.create({
+        title: 'Material Supply Delays',
+        description: 'Key construction materials may not arrive on schedule due to supply chain issues',
+        category: 'EXTERNAL',
+        probability: 0.5,
+        impact: 0.8,
+        status: 'ANALYZING',
+        riskType: 'THREAT',
+        projectId: project1.id,
+        identifiedBy: adminUser.id,
+        owner: adminUser.id,
+        potentialCostImpact: 75000,
+        potentialScheduleImpact: 21,
+        triggers: 'Supplier communication issues, Global supply chain disruptions',
+        mitigationStrategy: 'Maintain relationships with multiple suppliers, Order materials well in advance'
+      });
+      console.log('⚠️  Created risk: Material Supply Delays');
+    }
+
+    let risk3 = await Risk.findOne({ where: { title: 'Skilled Labor Shortage' } });
+    if (!risk3) {
+      risk3 = await Risk.create({
+        title: 'Skilled Labor Shortage',
+        description: 'Difficulty in finding qualified workers for specialized construction tasks',
+        category: 'RESOURCE',
+        probability: 0.4,
+        impact: 0.6,
+        status: 'PLANNED',
+        riskType: 'THREAT',
+        projectId: project1.id,
+        identifiedBy: adminUser.id,
+        owner: adminUser.id,
+        potentialCostImpact: 40000,
+        potentialScheduleImpact: 10
+      });
+      console.log('⚠️  Created risk: Skilled Labor Shortage');
+    }
+
+    let risk4 = await Risk.findOne({ where: { title: 'Safety Incident' } });
+    if (!risk4) {
+      risk4 = await Risk.create({
+        title: 'Safety Incident',
+        description: 'Potential for workplace accidents or injuries on the construction site',
+        category: 'SAFETY',
+        categoryId: safetyCategory.id,
+        probability: 0.3,
+        impact: 0.9,
+        status: 'IN_PROGRESS',
+        riskType: 'THREAT',
+        projectId: project1.id,
+        identifiedBy: adminUser.id,
+        owner: adminUser.id,
+        potentialCostImpact: 100000,
+        potentialScheduleImpact: 30
+      });
+      console.log('⚠️  Created risk: Safety Incident');
+    }
+
+    // Create sample risk mitigations
+    let mitigation1 = await RiskMitigation.findOne({ 
+      where: { riskId: risk1.id, action: 'Implement weather monitoring system' } 
+    });
+    if (!mitigation1) {
+      mitigation1 = await RiskMitigation.create({
+        riskId: risk1.id,
+        strategy: 'MITIGATE',
+        action: 'Implement weather monitoring system',
+        description: 'Set up automated weather alerts and integrate with project scheduling',
+        responsible: adminUser.id,
+        dueDate: new Date('2024-02-15'),
+        status: 'COMPLETED',
+        completedDate: new Date('2024-02-10'),
+        estimatedCost: 2000,
+        actualCost: 1800,
+        effectiveness: 'EFFECTIVE',
+        createdBy: adminUser.id
+      });
+      console.log('🛡️  Created mitigation: Weather monitoring system');
+    }
+
+    let mitigation2 = await RiskMitigation.findOne({ 
+      where: { riskId: risk1.id, action: 'Procure weather protection equipment' } 
+    });
+    if (!mitigation2) {
+      mitigation2 = await RiskMitigation.create({
+        riskId: risk1.id,
+        strategy: 'MITIGATE',
+        action: 'Procure weather protection equipment',
+        description: 'Purchase tarps, covers, and temporary shelters for protecting work in progress',
+        responsible: adminUser.id,
+        dueDate: new Date('2024-03-01'),
+        status: 'IN_PROGRESS',
+        estimatedCost: 15000,
+        createdBy: adminUser.id
+      });
+      console.log('🛡️  Created mitigation: Weather protection equipment');
+    }
+
+    let mitigation3 = await RiskMitigation.findOne({ 
+      where: { riskId: risk2.id, action: 'Establish secondary supplier agreements' } 
+    });
+    if (!mitigation3) {
+      mitigation3 = await RiskMitigation.create({
+        riskId: risk2.id,
+        strategy: 'TRANSFER',
+        action: 'Establish secondary supplier agreements',
+        description: 'Negotiate contracts with backup suppliers for critical materials',
+        responsible: adminUser.id,
+        dueDate: new Date('2024-02-28'),
+        status: 'PLANNED',
+        estimatedCost: 5000,
+        createdBy: adminUser.id
+      });
+      console.log('🛡️  Created mitigation: Secondary supplier agreements');
+    }
+
+    let mitigation4 = await RiskMitigation.findOne({ 
+      where: { riskId: risk4.id, action: 'Conduct weekly safety training sessions' } 
+    });
+    if (!mitigation4) {
+      mitigation4 = await RiskMitigation.create({
+        riskId: risk4.id,
+        strategy: 'MITIGATE',
+        action: 'Conduct weekly safety training sessions',
+        description: 'Regular safety briefings and training for all site workers',
+        responsible: adminUser.id,
+        dueDate: new Date('2024-12-31'),
+        status: 'IN_PROGRESS',
+        estimatedCost: 10000,
+        createdBy: adminUser.id
+      });
+      console.log('🛡️  Created mitigation: Weekly safety training');
+    }
     
     console.log('✅ Database seeding completed successfully!');
     console.log('👤 Created admin user: admin@uadesigns.com / admin123');
     console.log('🏗️  Created 2 sample projects');
     console.log('📋 Created 5 sample tasks');
     console.log('🔗 Created 3 sample task dependencies');
+    console.log('📁 Created 4 risk categories');
+    console.log('⚠️  Created 4 sample risks');
+    console.log('🛡️  Created 4 sample risk mitigations');
     
     process.exit(0);
   } catch (error) {

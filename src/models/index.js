@@ -22,10 +22,10 @@ const { Task, TaskDependency } = require('./Schedule');
 const { CostModel: Cost, Budget, Expense, CostCategory } = require('./Cost');
 
 // Resource Management
-const { Material, Labor, Equipment } = require('./Resources');
+const { Material, Labor, Equipment, TeamMember, SkillsMatrix, ResourceAllocation, EquipmentMaintenance } = require('./Resources');
 
 // Risk Management
-const { RiskModel: Risk } = require('./Risk');
+const { RiskModel: Risk, RiskMitigation, RiskCategory } = require('./Risk');
 
 // Stakeholder Management
 const Stakeholder = require('./Stakeholder/index');
@@ -41,7 +41,13 @@ const CostCategoryModel = CostCategory(sequelize, Sequelize);
 const MaterialModel = Material(sequelize, Sequelize);
 const LaborModel = Labor(sequelize, Sequelize);
 const EquipmentModel = Equipment(sequelize, Sequelize);
+const TeamMemberModel = TeamMember(sequelize, Sequelize);
+const SkillsMatrixModel = SkillsMatrix(sequelize, Sequelize);
+const ResourceAllocationModel = ResourceAllocation(sequelize, Sequelize);
+const EquipmentMaintenanceModel = EquipmentMaintenance(sequelize, Sequelize);
 const RiskModel = Risk(sequelize, Sequelize);
+const RiskMitigationModel = RiskMitigation(sequelize, Sequelize);
+const RiskCategoryModel = RiskCategory(sequelize, Sequelize);
 const StakeholderModel = Stakeholder(sequelize, Sequelize);
 
 // Define associations for core knowledge areas
@@ -51,7 +57,13 @@ ProjectModel.hasMany(TaskModel, { as: 'tasks', foreignKey: 'projectId' });
 TaskModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
 
 ProjectModel.hasMany(BudgetModel, { as: 'budgets', foreignKey: 'projectId' });
-BudgetModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
+BudgetModel.belongsTo(ProjectModel, { as: 'project', foreignKey: 'projectId' });
+
+ProjectModel.hasMany(ExpenseModel, { as: 'expenses', foreignKey: 'projectId' });
+ExpenseModel.belongsTo(ProjectModel, { as: 'project', foreignKey: 'projectId' });
+
+ProjectModel.hasMany(CostModel, { as: 'costs', foreignKey: 'projectId' });
+CostModel.belongsTo(ProjectModel, { as: 'project', foreignKey: 'projectId' });
 
 ProjectModel.hasMany(RiskModel, { as: 'risks', foreignKey: 'projectId' });
 RiskModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
@@ -89,20 +101,69 @@ TaskDependencyModel.belongsTo(TaskModel, { as: 'successorTask', foreignKey: 'suc
 
 // 2. Cost Management
 BudgetModel.hasMany(ExpenseModel, { as: 'expenses', foreignKey: 'budgetId' });
-ExpenseModel.belongsTo(BudgetModel, { foreignKey: 'budgetId' });
+ExpenseModel.belongsTo(BudgetModel, { as: 'budget', foreignKey: 'budgetId' });
+
+BudgetModel.hasMany(CostModel, { as: 'costs', foreignKey: 'budgetId' });
+CostModel.belongsTo(BudgetModel, { foreignKey: 'budgetId' });
 
 CostCategoryModel.hasMany(ExpenseModel, { as: 'expenses', foreignKey: 'categoryId' });
-ExpenseModel.belongsTo(CostCategoryModel, { foreignKey: 'categoryId' });
+ExpenseModel.belongsTo(CostCategoryModel, { as: 'costCategory', foreignKey: 'categoryId' });
 
-TaskModel.hasMany(CostModel, { as: 'costs', foreignKey: 'taskId' });
+CostCategoryModel.hasMany(CostModel, { as: 'costs', foreignKey: 'categoryId' });
+CostModel.belongsTo(CostCategoryModel, { as: 'costCategory', foreignKey: 'categoryId' });
+
+TaskModel.hasMany(CostModel, { as: 'taskCosts', foreignKey: 'taskId' });
 CostModel.belongsTo(TaskModel, { foreignKey: 'taskId' });
 
-// 3. Resource Management
-// Already defined above
+// 3. Resource Management - Team Members
+ProjectModel.hasMany(TeamMemberModel, { as: 'teamMembers', foreignKey: 'projectId' });
+TeamMemberModel.belongsTo(ProjectModel, { as: 'project', foreignKey: 'projectId' });
+
+User.hasMany(TeamMemberModel, { as: 'projectAssignments', foreignKey: 'userId' });
+TeamMemberModel.belongsTo(User, { as: 'user', foreignKey: 'userId' });
+
+TeamMemberModel.hasMany(SkillsMatrixModel, { as: 'skills', foreignKey: 'teamMemberId' });
+SkillsMatrixModel.belongsTo(TeamMemberModel, { as: 'teamMember', foreignKey: 'teamMemberId' });
+
+// Resource Allocations
+ProjectModel.hasMany(ResourceAllocationModel, { as: 'resourceAllocations', foreignKey: 'projectId' });
+ResourceAllocationModel.belongsTo(ProjectModel, { as: 'project', foreignKey: 'projectId' });
+
+TaskModel.hasMany(ResourceAllocationModel, { as: 'resourceAllocations', foreignKey: 'taskId' });
+ResourceAllocationModel.belongsTo(TaskModel, { as: 'task', foreignKey: 'taskId' });
+
+// Equipment Maintenance
+EquipmentModel.hasMany(EquipmentMaintenanceModel, { as: 'maintenanceRecords', foreignKey: 'equipmentId' });
+EquipmentMaintenanceModel.belongsTo(EquipmentModel, { as: 'equipment', foreignKey: 'equipmentId' });
 
 // 4. Risk Management
 TaskModel.hasMany(RiskModel, { as: 'risks', foreignKey: 'taskId' });
 RiskModel.belongsTo(TaskModel, { foreignKey: 'taskId' });
+
+// Risk Mitigations
+RiskModel.hasMany(RiskMitigationModel, { as: 'mitigations', foreignKey: 'riskId' });
+RiskMitigationModel.belongsTo(RiskModel, { as: 'risk', foreignKey: 'riskId' });
+
+// Risk Categories
+RiskCategoryModel.hasMany(RiskModel, { as: 'risks', foreignKey: 'categoryId' });
+RiskModel.belongsTo(RiskCategoryModel, { as: 'riskCategory', foreignKey: 'categoryId' });
+
+// Risk User associations
+User.hasMany(RiskModel, { as: 'identifiedRisks', foreignKey: 'identifiedBy' });
+RiskModel.belongsTo(User, { as: 'identifier', foreignKey: 'identifiedBy' });
+
+User.hasMany(RiskModel, { as: 'ownedRisks', foreignKey: 'owner' });
+RiskModel.belongsTo(User, { as: 'riskOwner', foreignKey: 'owner' });
+
+User.hasMany(RiskModel, { as: 'escalatedRisks', foreignKey: 'escalatedTo' });
+RiskModel.belongsTo(User, { as: 'escalatee', foreignKey: 'escalatedTo' });
+
+// Mitigation User associations
+User.hasMany(RiskMitigationModel, { as: 'responsibleMitigations', foreignKey: 'responsible' });
+RiskMitigationModel.belongsTo(User, { as: 'responsibleUser', foreignKey: 'responsible' });
+
+User.hasMany(RiskMitigationModel, { as: 'createdMitigations', foreignKey: 'createdBy' });
+RiskMitigationModel.belongsTo(User, { as: 'creator', foreignKey: 'createdBy' });
 
 // 5. Stakeholder Management
 // Already defined above
@@ -116,11 +177,17 @@ module.exports = {
   TaskDependency: TaskDependencyModel,
   Cost: CostModel,
   Risk: RiskModel,
+  RiskMitigation: RiskMitigationModel,
+  RiskCategory: RiskCategoryModel,
   Stakeholder: StakeholderModel,
   Material: MaterialModel,
   Equipment: EquipmentModel,
   Labor: LaborModel,
   Budget: BudgetModel,
   Expense: ExpenseModel,
-  CostCategory: CostCategoryModel
+  CostCategory: CostCategoryModel,
+  TeamMember: TeamMemberModel,
+  SkillsMatrix: SkillsMatrixModel,
+  ResourceAllocation: ResourceAllocationModel,
+  EquipmentMaintenance: EquipmentMaintenanceModel
 }; 
