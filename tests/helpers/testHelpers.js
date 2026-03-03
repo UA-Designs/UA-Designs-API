@@ -198,6 +198,46 @@ function createTestTask(overrides = {}) {
   };
 }
 
+// --- Cost Management factory functions ---
+
+function createTestCost(overrides = {}) {
+  return {
+    id: uuidv4(),
+    name: 'Test Cost Entry',
+    type: 'MATERIAL',
+    amount: 5000.00,
+    currency: 'USD',
+    date: new Date().toISOString(),
+    description: 'Test cost for automated testing',
+    status: 'PENDING',
+    ...overrides
+  };
+}
+
+function createTestBudget(overrides = {}) {
+  return {
+    id: uuidv4(),
+    name: 'Test Budget',
+    amount: 100000.00,
+    currency: 'USD',
+    description: 'Test budget for automated testing',
+    ...overrides
+  };
+}
+
+function createTestExpense(overrides = {}) {
+  return {
+    id: uuidv4(),
+    name: 'Test Expense',
+    amount: 2500.00,
+    currency: 'USD',
+    category: 'MATERIAL',
+    date: new Date().toISOString(),
+    description: 'Test expense for automated testing',
+    ...overrides
+  };
+}
+
 module.exports = {
   generateAuthToken,
   createTestUser,
@@ -213,5 +253,8 @@ module.exports = {
   createTestStakeholder,
   createTestCommunication,
   createTestEngagement,
-  createTestTask
+  createTestTask,
+  createTestCost,
+  createTestBudget,
+  createTestExpense
 };
