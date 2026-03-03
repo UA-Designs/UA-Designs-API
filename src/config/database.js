@@ -8,8 +8,14 @@ module.exports = {
   },
   test: {
     dialect: 'sqlite',
-    storage: './database_test.sqlite',
-    logging: false
+    storage: ':memory:',
+    logging: false,
+    pool: {
+      max: 1,
+      min: 1,
+      acquire: 60000,
+      idle: 10000
+    }
   },
   production: {
     username: process.env.DB_USER,

@@ -29,6 +29,8 @@ const { RiskModel: Risk, RiskMitigation, RiskCategory } = require('./Risk');
 
 // Stakeholder Management
 const Stakeholder = require('./Stakeholder/index');
+const Communication = require('./Stakeholder/Communication/index');
+const StakeholderEngagement = require('./Stakeholder/StakeholderEngagement/index');
 
 // Initialize models with sequelize
 const ProjectModel = Project;
@@ -49,6 +51,8 @@ const RiskModel = Risk(sequelize, Sequelize);
 const RiskMitigationModel = RiskMitigation(sequelize, Sequelize);
 const RiskCategoryModel = RiskCategory(sequelize, Sequelize);
 const StakeholderModel = Stakeholder(sequelize, Sequelize);
+const CommunicationModel = Communication(sequelize, Sequelize);
+const StakeholderEngagementModel = StakeholderEngagement(sequelize, Sequelize);
 
 // Define associations for core knowledge areas
 
@@ -69,16 +73,16 @@ ProjectModel.hasMany(RiskModel, { as: 'risks', foreignKey: 'projectId' });
 RiskModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
 
 ProjectModel.hasMany(StakeholderModel, { as: 'stakeholders', foreignKey: 'projectId' });
-StakeholderModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
+StakeholderModel.belongsTo(ProjectModel, { as: 'project', foreignKey: 'projectId' });
 
 ProjectModel.hasMany(MaterialModel, { as: 'materials', foreignKey: 'projectId' });
-MaterialModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
+MaterialModel.belongsTo(ProjectModel, { as: 'project', foreignKey: 'projectId' });
 
 ProjectModel.hasMany(LaborModel, { as: 'labor', foreignKey: 'projectId' });
-LaborModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
+LaborModel.belongsTo(ProjectModel, { as: 'project', foreignKey: 'projectId' });
 
 ProjectModel.hasMany(EquipmentModel, { as: 'equipment', foreignKey: 'projectId' });
-EquipmentModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
+EquipmentModel.belongsTo(ProjectModel, { as: 'project', foreignKey: 'projectId' });
 
 // User associations
 User.hasMany(ProjectModel, { as: 'managedProjects', foreignKey: 'projectManagerId' });
@@ -88,7 +92,7 @@ User.hasMany(TaskModel, { as: 'assignedTasks', foreignKey: 'assignedTo' });
 TaskModel.belongsTo(User, { as: 'assignedUser', foreignKey: 'assignedTo' });
 
 User.hasMany(StakeholderModel, { as: 'stakeholderRoles', foreignKey: 'userId' });
-StakeholderModel.belongsTo(User, { foreignKey: 'userId' });
+StakeholderModel.belongsTo(User, { as: 'user', foreignKey: 'userId' });
 
 // 1. Schedule Management
 // Task associations
@@ -166,7 +170,23 @@ User.hasMany(RiskMitigationModel, { as: 'createdMitigations', foreignKey: 'creat
 RiskMitigationModel.belongsTo(User, { as: 'creator', foreignKey: 'createdBy' });
 
 // 5. Stakeholder Management
-// Already defined above
+StakeholderModel.hasMany(CommunicationModel, { as: 'communications', foreignKey: 'stakeholderId' });
+CommunicationModel.belongsTo(StakeholderModel, { as: 'stakeholder', foreignKey: 'stakeholderId' });
+
+CommunicationModel.belongsTo(ProjectModel, { as: 'project', foreignKey: 'projectId' });
+ProjectModel.hasMany(CommunicationModel, { as: 'communications', foreignKey: 'projectId' });
+
+CommunicationModel.belongsTo(User, { as: 'sender', foreignKey: 'sentBy' });
+User.hasMany(CommunicationModel, { as: 'sentCommunications', foreignKey: 'sentBy' });
+
+StakeholderModel.hasMany(StakeholderEngagementModel, { as: 'engagements', foreignKey: 'stakeholderId' });
+StakeholderEngagementModel.belongsTo(StakeholderModel, { as: 'stakeholder', foreignKey: 'stakeholderId' });
+
+StakeholderEngagementModel.belongsTo(ProjectModel, { as: 'project', foreignKey: 'projectId' });
+ProjectModel.hasMany(StakeholderEngagementModel, { as: 'stakeholderEngagements', foreignKey: 'projectId' });
+
+StakeholderEngagementModel.belongsTo(User, { as: 'assessor', foreignKey: 'assessedBy' });
+User.hasMany(StakeholderEngagementModel, { as: 'conductedEngagements', foreignKey: 'assessedBy' });
 
 module.exports = {
   sequelize,
@@ -180,6 +200,8 @@ module.exports = {
   RiskMitigation: RiskMitigationModel,
   RiskCategory: RiskCategoryModel,
   Stakeholder: StakeholderModel,
+  Communication: CommunicationModel,
+  StakeholderEngagement: StakeholderEngagementModel,
   Material: MaterialModel,
   Equipment: EquipmentModel,
   Labor: LaborModel,
