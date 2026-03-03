@@ -119,6 +119,9 @@ CostModel.belongsTo(CostCategoryModel, { as: 'costCategory', foreignKey: 'catego
 TaskModel.hasMany(CostModel, { as: 'taskCosts', foreignKey: 'taskId' });
 CostModel.belongsTo(TaskModel, { foreignKey: 'taskId' });
 
+TaskModel.hasMany(ExpenseModel, { as: 'taskExpenses', foreignKey: 'taskId' });
+ExpenseModel.belongsTo(TaskModel, { as: 'task', foreignKey: 'taskId' });
+
 // 3. Resource Management - Team Members
 ProjectModel.hasMany(TeamMemberModel, { as: 'teamMembers', foreignKey: 'projectId' });
 TeamMemberModel.belongsTo(ProjectModel, { as: 'project', foreignKey: 'projectId' });
