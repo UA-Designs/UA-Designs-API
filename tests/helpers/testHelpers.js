@@ -183,6 +183,21 @@ function createTestEngagement(overrides = {}) {
   };
 }
 
+function createTestTask(overrides = {}) {
+  return {
+    id: uuidv4(),
+    name: 'Test Task',
+    description: 'A test task for automated testing',
+    status: 'NOT_STARTED',
+    priority: 'MEDIUM',
+    startDate: new Date(),
+    endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+    duration: 14,
+    progress: 0,
+    ...overrides
+  };
+}
+
 module.exports = {
   generateAuthToken,
   createTestUser,
@@ -197,5 +212,6 @@ module.exports = {
   createTestAllocation,
   createTestStakeholder,
   createTestCommunication,
-  createTestEngagement
+  createTestEngagement,
+  createTestTask
 };
