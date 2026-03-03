@@ -577,30 +577,34 @@ app.use('*', (req, res) => {
   });
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`🚀 UA Designs PMS Server running on port ${PORT}`);
-  console.log(`📊 Core Project Management System`);
-  console.log(`🎯 Focused on: Scheduling, Cost, Resources, Risk, Stakeholders`);
-  console.log(`⏰ ${new Date().toISOString()}`);
-});
+// Only start listening when this file is run directly (e.g. `node src/server.js`).
+// When imported by tests via require(), no TCP socket is opened so Jest can exit cleanly.
+if (require.main === module) {
+  const server = app.listen(PORT, () => {
+    console.log(`🚀 UA Designs PMS Server running on port ${PORT}`);
+    console.log(`📊 Core Project Management System`);
+    console.log(`🎯 Focused on: Scheduling, Cost, Resources, Risk, Stakeholders`);
+    console.log(`⏰ ${new Date().toISOString()}`);
+  });
 
-// Handle server errors
-server.on('error', (error) => {
-  console.error('Server error:', error);
-  if (error.code === 'EADDRINUSE') {
-    console.error(`Port ${PORT} is already in use`);
-  }
-});
+  // Handle server errors
+  server.on('error', (error) => {
+    console.error('Server error:', error);
+    if (error.code === 'EADDRINUSE') {
+      console.error(`Port ${PORT} is already in use`);
+    }
+  });
 
-// Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
-  process.exit(1);
-});
+  // Handle uncaught exceptions
+  process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+    process.exit(1);
+  });
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  process.exit(1);
-});
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    process.exit(1);
+  });
+}
 
-module.exports = app; 
+module.exports = app;
