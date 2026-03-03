@@ -5,7 +5,7 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true
     },
-    name: {
+    title: {
       type: DataTypes.STRING,
       allowNull: false
     },
@@ -29,19 +29,60 @@ module.exports = (sequelize, DataTypes) => {
         max: 1
       }
     },
+    riskScore: {
+      type: DataTypes.DECIMAL(5, 4),
+      allowNull: true
+    },
     severity: {
       type: DataTypes.ENUM('LOW', 'MEDIUM', 'HIGH', 'CRITICAL'),
       allowNull: false
     },
     status: {
-      type: DataTypes.ENUM('IDENTIFIED', 'ANALYZING', 'MITIGATED', 'CLOSED'),
+      type: DataTypes.ENUM('IDENTIFIED', 'ANALYZED', 'MITIGATING', 'MONITORING', 'CLOSED', 'ESCALATED'),
       defaultValue: 'IDENTIFIED'
     },
-    mitigationStrategy: {
-      type: DataTypes.TEXT,
+    responseStrategy: {
+      type: DataTypes.ENUM('AVOID', 'MITIGATE', 'TRANSFER', 'ACCEPT'),
       allowNull: true
     },
-    contingencyPlan: {
+    projectId: {
+      type: DataTypes.UUID,
+      allowNull: false
+    },
+    taskId: {
+      type: DataTypes.UUID,
+      allowNull: true
+    },
+    categoryId: {
+      type: DataTypes.UUID,
+      allowNull: true
+    },
+    identifiedBy: {
+      type: DataTypes.UUID,
+      allowNull: true
+    },
+    owner: {
+      type: DataTypes.UUID,
+      allowNull: true
+    },
+    identifiedDate: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: DataTypes.NOW
+    },
+    escalatedTo: {
+      type: DataTypes.UUID,
+      allowNull: true
+    },
+    escalatedDate: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    closedDate: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    notes: {
       type: DataTypes.TEXT,
       allowNull: true
     }
@@ -52,4 +93,4 @@ module.exports = (sequelize, DataTypes) => {
   });
 
   return Risk;
-}; 
+};
