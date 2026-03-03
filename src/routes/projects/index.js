@@ -1,5 +1,5 @@
 const express = require('express');
-const { Project, User, Task } = require('../../models');
+const { Project, User, Task, Budget, Risk, Stakeholder, Material, Labor, Equipment } = require('../../models');
 const { authenticateToken, authorizeRoles, authorizePermission } = require('../../middleware/auth');
 const { Op } = require('sequelize');
 const router = express.Router();
@@ -101,7 +101,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
           include: [
             {
               model: User,
-              as: 'assignedTo',
+              as: 'assignedUser',
               attributes: ['id', 'firstName', 'lastName']
             }
           ]
@@ -533,11 +533,10 @@ router.get('/stats/overview', authenticateToken, async (req, res) => {
       }
     });
 
-    // Total budget and actual cost
+    // Total budget
     const budgetStats = await Project.findAll({
       attributes: [
-        [Project.sequelize.fn('SUM', Project.sequelize.col('budget')), 'totalBudget'],
-        [Project.sequelize.fn('SUM', Project.sequelize.col('actualCost')), 'totalActualCost']
+        [Project.sequelize.fn('SUM', Project.sequelize.col('budget')), 'totalBudget']
       ],
       raw: true
     });
@@ -559,8 +558,7 @@ router.get('/stats/overview', authenticateToken, async (req, res) => {
           return acc;
         }, {}),
         budgetStats: {
-          totalBudget: parseFloat(budgetStats[0]?.totalBudget || 0),
-          totalActualCost: parseFloat(budgetStats[0]?.totalActualCost || 0)
+          totalBudget: parseFloat(budgetStats[0]?.totalBudget || 0)
         }
       }
     });

@@ -146,13 +146,11 @@ router.post('/', authenticateToken, authorizeRoles('ADMIN'), async (req, res) =>
     }
 
     // Check if user already exists
+    const orConditions = [{ email }];
+    if (employeeId) orConditions.push({ employeeId });
+
     const existingUser = await User.findOne({
-      where: {
-        [Op.or]: [
-          { email },
-          { employeeId: employeeId || null }
-        ]
-      }
+      where: { [Op.or]: orConditions }
     });
 
     if (existingUser) {

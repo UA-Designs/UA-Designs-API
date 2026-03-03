@@ -208,6 +208,12 @@ router.get('/me', async (req, res) => {
       }
     });
   } catch (error) {
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid or expired token'
+      });
+    }
     console.error('Get profile error:', error);
     res.status(500).json({
       success: false,

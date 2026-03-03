@@ -61,7 +61,7 @@ class TaskController {
           },
           {
             model: Project,
-            attributes: ['id', 'name', 'projectNumber']
+            attributes: ['id', 'name']
           },
           {
             model: TaskDependency,
