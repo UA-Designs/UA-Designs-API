@@ -5,6 +5,10 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true
     },
+    projectId: {
+      type: DataTypes.UUID,
+      allowNull: false
+    },
     name: {
       type: DataTypes.STRING,
       allowNull: false
@@ -13,21 +17,45 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false
     },
-    hours: {
+    trade: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    dailyRate: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: false
     },
-    rate: {
+    overtimeRate: {
       type: DataTypes.DECIMAL(10, 2),
-      allowNull: false
+      allowNull: true
+    },
+    hoursWorked: {
+      type: DataTypes.DECIMAL(10, 2),
+      defaultValue: 0
     },
     totalCost: {
       type: DataTypes.DECIMAL(10, 2),
-      allowNull: false
+      allowNull: true
     },
     status: {
-      type: DataTypes.ENUM('ASSIGNED', 'IN_PROGRESS', 'COMPLETED'),
-      defaultValue: 'ASSIGNED'
+      type: DataTypes.ENUM('AVAILABLE', 'ASSIGNED', 'ON_LEAVE', 'TERMINATED'),
+      defaultValue: 'AVAILABLE'
+    },
+    startDate: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    endDate: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    contactInfo: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    notes: {
+      type: DataTypes.TEXT,
+      allowNull: true
     }
   }, {
     tableName: 'labor',

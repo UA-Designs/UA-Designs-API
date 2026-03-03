@@ -5,17 +5,21 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true
     },
+    projectId: {
+      type: DataTypes.UUID,
+      allowNull: false
+    },
     name: {
       type: DataTypes.STRING,
       allowNull: false
     },
-    type: {
-      type: DataTypes.ENUM('STRUCTURAL', 'FINISHING', 'MECHANICAL', 'ELECTRICAL'),
-      allowNull: false
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: true
     },
-    quantity: {
-      type: DataTypes.DECIMAL(10, 2),
-      allowNull: false
+    category: {
+      type: DataTypes.STRING,
+      allowNull: true
     },
     unit: {
       type: DataTypes.STRING,
@@ -25,17 +29,33 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: false
     },
-    totalCost: {
+    quantity: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: false
+    },
+    totalCost: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true
     },
     supplier: {
       type: DataTypes.STRING,
       allowNull: true
     },
     status: {
-      type: DataTypes.ENUM('ORDERED', 'IN_TRANSIT', 'RECEIVED', 'INSTALLED'),
+      type: DataTypes.ENUM('ORDERED', 'IN_TRANSIT', 'DELIVERED', 'IN_USE', 'DEPLETED'),
       defaultValue: 'ORDERED'
+    },
+    deliveryDate: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    location: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    notes: {
+      type: DataTypes.TEXT,
+      allowNull: true
     }
   }, {
     tableName: 'materials',

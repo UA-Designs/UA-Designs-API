@@ -5,6 +5,10 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true
     },
+    projectId: {
+      type: DataTypes.UUID,
+      allowNull: true
+    },
     name: {
       type: DataTypes.STRING,
       allowNull: false
@@ -17,12 +21,24 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.ENUM('AVAILABLE', 'IN_USE', 'MAINTENANCE', 'RETIRED'),
       defaultValue: 'AVAILABLE'
     },
-    purchaseDate: {
+    dailyRate: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true
+    },
+    condition: {
+      type: DataTypes.ENUM('EXCELLENT', 'GOOD', 'FAIR', 'POOR'),
+      defaultValue: 'GOOD'
+    },
+    operator: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    lastMaintenance: {
       type: DataTypes.DATE,
       allowNull: true
     },
-    value: {
-      type: DataTypes.DECIMAL(10, 2),
+    nextMaintenance: {
+      type: DataTypes.DATE,
       allowNull: true
     },
     location: {
@@ -30,6 +46,10 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true
     },
     description: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    notes: {
       type: DataTypes.TEXT,
       allowNull: true
     }
