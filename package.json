@@ -6,10 +6,14 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+    "dev:clean": "node src/database/seed-clean.js && nodemon src/server.js",
+    "dev:demo": "node src/database/seed-demo.js && nodemon src/server.js",
     "build": "babel src -d dist",
     "test": "jest",
     "migrate": "node src/database/migrate.js",
     "seed": "node src/database/seed.js",
+    "seed:clean": "node src/database/seed-clean.js",
+    "seed:demo": "node src/database/seed-demo.js",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix"
   },

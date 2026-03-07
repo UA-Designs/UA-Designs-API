@@ -214,9 +214,13 @@ npx jest --coverage
 |--------|---------|-------------|
 | `npm start` | `node src/server.js` | Production server |
 | `npm run dev` | `nodemon src/server.js` | Dev server with auto-reload |
+| `npm run dev:clean` | seed-clean + nodemon | Dev server with empty DB (admin only) |
+| `npm run dev:demo` | seed-demo + nodemon | Dev server with full demo data |
 | `npm test` | `jest` | Run test suite |
 | `npm run migrate` | `node src/database/migrate.js` | Run database migrations |
-| `npm run seed` | `node src/database/seed.js` | Seed demo data |
+| `npm run seed` | `node src/database/seed.js` | Seed demo data (alias for seed:demo) |
+| `npm run seed:clean` | `node src/database/seed-clean.js` | Reset DB with 1 admin account |
+| `npm run seed:demo` | `node src/database/seed-demo.js` | Reset DB with full demo dataset |
 | `npm run lint` | `eslint src/` | Lint source code |
 
 ## Project Structure
