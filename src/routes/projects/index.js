@@ -1,6 +1,7 @@
 const express = require('express');
 const { Project, User, Task, Budget, Risk, Stakeholder, Material, Labor, Equipment } = require('../../models');
-const { authenticateToken, authorizeRoles, authorizePermission } = require('../../middleware/auth');
+const { authenticateToken } = require('../../middleware/auth');
+const { authorize, authorizeOwnerOr } = require('../../middleware/authorize');
 const { Op } = require('sequelize');
 const router = express.Router();
 
@@ -248,7 +249,7 @@ router.get('/:id/dashboard', authenticateToken, async (req, res) => {
 });
 
 // Create new project
-router.post('/', authenticateToken, authorizeRoles('ADMIN', 'PROJECT_MANAGER'), async (req, res) => {
+router.post('/', authenticateToken, authorize('MANAGER_AND_ABOVE'), async (req, res) => {
   try {
     const {
       name,
@@ -319,7 +320,10 @@ router.post('/', authenticateToken, authorizeRoles('ADMIN', 'PROJECT_MANAGER'), 
 });
 
 // Update project
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', authenticateToken, authorizeOwnerOr('ADMIN_ONLY', async (req) => {
+  const project = await Project.findByPk(req.params.id, { attributes: ['projectManagerId'] });
+  return project?.projectManagerId;
+}), async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
@@ -329,14 +333,6 @@ router.put('/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Project not found'
-      });
-    }
-
-    // Check permissions - only project manager or admin can update
-    if (req.user.role !== 'ADMIN' && project.projectManagerId !== req.user.id) {
-      return res.status(403).json({
-        success: false,
-        message: 'Only project manager or admin can update this project'
       });
     }
 
@@ -374,7 +370,10 @@ router.put('/:id', authenticateToken, async (req, res) => {
 });
 
 // Update project status
-router.patch('/:id/status', authenticateToken, async (req, res) => {
+router.patch('/:id/status', authenticateToken, authorizeOwnerOr('ADMIN_ONLY', async (req) => {
+  const project = await Project.findByPk(req.params.id, { attributes: ['projectManagerId'] });
+  return project?.projectManagerId;
+}), async (req, res) => {
   try {
     const { id } = req.params;
     const { status, phase, actualEndDate } = req.body;
@@ -384,14 +383,6 @@ router.patch('/:id/status', authenticateToken, async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Project not found'
-      });
-    }
-
-    // Check permissions
-    if (req.user.role !== 'ADMIN' && project.projectManagerId !== req.user.id) {
-      return res.status(403).json({
-        success: false,
-        message: 'Only project manager or admin can update project status'
       });
     }
 
@@ -418,7 +409,7 @@ router.patch('/:id/status', authenticateToken, async (req, res) => {
 });
 
 // Assign project manager
-router.patch('/:id/assign-manager', authenticateToken, authorizeRoles('ADMIN', 'PROJECT_MANAGER'), async (req, res) => {
+router.patch('/:id/assign-manager', authenticateToken, authorize('ADMIN_ONLY'), async (req, res) => {
   try {
     const { id } = req.params;
     const { projectManagerId } = req.body;
@@ -465,7 +456,7 @@ router.patch('/:id/assign-manager', authenticateToken, authorizeRoles('ADMIN', '
 });
 
 // Delete project (soft delete)
-router.delete('/:id', authenticateToken, authorizeRoles('ADMIN'), async (req, res) => {
+router.delete('/:id', authenticateToken, authorize('ADMIN_ONLY'), async (req, res) => {
   try {
     const { id } = req.params;
 

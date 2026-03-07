@@ -1,6 +1,7 @@
 const express = require('express');
 const { Task, TaskDependency, Project, User } = require('../../models');
-const { authenticateToken, authorizeRoles } = require('../../middleware/auth');
+const { authenticateToken } = require('../../middleware/auth');
+const { authorize } = require('../../middleware/authorize');
 const taskController = require('../../controllers/Schedule/taskController');
 const { Op } = require('sequelize');
 const router = express.Router();
@@ -47,10 +48,10 @@ router.get('/tasks', authenticateToken, async (req, res) => {
 router.get('/tasks/:id', authenticateToken, taskController.getTaskById);
 
 // Create new task
-router.post('/projects/:projectId/tasks', authenticateToken, taskController.createTask);
+router.post('/projects/:projectId/tasks', authenticateToken, authorize('MANAGER_AND_ABOVE'), taskController.createTask);
 
 // Create new task (general endpoint)
-router.post('/tasks', authenticateToken, async (req, res) => {
+router.post('/tasks', authenticateToken, authorize('MANAGER_AND_ABOVE'), async (req, res) => {
   try {
     const { projectId, ...taskData } = req.body;
     
@@ -75,13 +76,13 @@ router.post('/tasks', authenticateToken, async (req, res) => {
 });
 
 // Update task
-router.put('/tasks/:id', authenticateToken, taskController.updateTask);
+router.put('/tasks/:id', authenticateToken, authorize('ENGINEER_AND_ABOVE'), taskController.updateTask);
 
 // Update task status/progress
-router.put('/tasks/:id/status', authenticateToken, taskController.updateTaskStatus);
+router.put('/tasks/:id/status', authenticateToken, authorize('ENGINEER_AND_ABOVE'), taskController.updateTaskStatus);
 
 // Delete task
-router.delete('/tasks/:id', authenticateToken, taskController.deleteTask);
+router.delete('/tasks/:id', authenticateToken, authorize('MANAGER_AND_ABOVE'), taskController.deleteTask);
 
 // ==================== TASK DEPENDENCY ROUTES ====================
 
@@ -92,10 +93,10 @@ router.get('/tasks/:id/dependencies', authenticateToken, taskController.getTaskD
 router.get('/projects/:projectId/dependencies', authenticateToken, taskController.getProjectDependencies);
 
 // Create task dependency
-router.post('/dependencies', authenticateToken, taskController.createTaskDependency);
+router.post('/dependencies', authenticateToken, authorize('MANAGER_AND_ABOVE'), taskController.createTaskDependency);
 
 // Delete task dependency
-router.delete('/dependencies/:id', authenticateToken, taskController.deleteTaskDependency);
+router.delete('/dependencies/:id', authenticateToken, authorize('MANAGER_AND_ABOVE'), taskController.deleteTaskDependency);
 
 // ==================== CRITICAL PATH ROUTES ====================
 

@@ -38,21 +38,16 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: true
     },
-    // UA Designs specific roles based on operational structure
+    // UA Designs roles — three operational tiers + system admin
     role: {
       type: DataTypes.ENUM(
-        'CIVIL_ENGINEER',      // Mr. King Christian Uy - Materials, methodology, worker assignments
-        'ARCHITECT',           // Mrs. Mary Claire Anyayahan-Uy - Design and finishing materials
-        'SITE_ENGINEER',       // Progress tracking and site supervision
-        'JUNIOR_ARCHITECT',    // Detail development and supervision
-        'APPRENTICE_ARCHITECT', // Detail development and supervision
-        'BOOKKEEPER',          // Payroll and finance
-        'SECRETARY',           // Liaison work and external transactions
-        'PROJECT_MANAGER',     // Overall project coordination
+        'PROJECT_MANAGER',     // Full project control, approval authority
+        'ENGINEER',            // Task updates, resource/cost data input
+        'STAFF',               // Read-only + communication input
         'ADMIN'                // System administration
       ),
       allowNull: false,
-      defaultValue: 'JUNIOR_ARCHITECT'
+      defaultValue: 'ENGINEER'
     },
     department: {
       type: DataTypes.STRING,
@@ -176,82 +171,48 @@ module.exports = (sequelize, DataTypes) => {
   });
 
   // Static method to get default permissions for each role
+  // Permissions are organized by the three operational tiers:
+  //   Project Manager tier — read/write/approve on all project modules
+  //   Engineer tier        — read/write (no approve) on operational modules
+  //   Staff tier           — read-only everywhere; write on communication only
   User.getDefaultPermissions = (role) => {
-    const permissions = {
-      CIVIL_ENGINEER: {
-        materials: ['read', 'write', 'approve'],
-        methodology: ['read', 'write', 'approve'],
-        workerAssignments: ['read', 'write', 'approve'],
-        structuralMaterials: ['read', 'write', 'approve'],
-        projectManagement: ['read', 'write'],
-        costManagement: ['read', 'write'],
-        qualityControl: ['read', 'write', 'approve']
-      },
-      ARCHITECT: {
-        design: ['read', 'write', 'approve'],
-        finishingMaterials: ['read', 'write', 'approve'],
-        clientApproval: ['read', 'write', 'approve'],
-        designReview: ['read', 'write', 'approve'],
-        projectManagement: ['read', 'write'],
-        costManagement: ['read', 'write']
-      },
-      SITE_ENGINEER: {
-        progressTracking: ['read', 'write', 'approve'],
-        siteSupervision: ['read', 'write', 'approve'],
-        qualityControl: ['read', 'write'],
-        safetyManagement: ['read', 'write', 'approve'],
-        resourceAllocation: ['read', 'write'],
-        projectManagement: ['read', 'write']
-      },
-      JUNIOR_ARCHITECT: {
-        detailDevelopment: ['read', 'write'],
-        supervision: ['read', 'write'],
-        designSupport: ['read', 'write'],
-        projectManagement: ['read']
-      },
-      APPRENTICE_ARCHITECT: {
-        detailDevelopment: ['read', 'write'],
-        supervision: ['read'],
-        designSupport: ['read', 'write'],
-        projectManagement: ['read']
-      },
-      BOOKKEEPER: {
-        payroll: ['read', 'write', 'approve'],
-        finance: ['read', 'write', 'approve'],
-        costTracking: ['read', 'write', 'approve'],
-        budgetManagement: ['read', 'write', 'approve'],
-        financialReports: ['read', 'write', 'approve']
-      },
-      SECRETARY: {
-        liaisonWork: ['read', 'write'],
-        externalTransactions: ['read', 'write'],
+    const allModules = [
+      'projectManagement',
+      'scheduleManagement',
+      'costManagement',
+      'resourceManagement',
+      'riskManagement',
+      'stakeholderManagement',
+      'qualityManagement',
+      'analytics',
+      'communication',
+    ];
+
+    const TIERS = {
+      PROJECT_MANAGER: Object.fromEntries(
+        allModules.map(m => [m, ['read', 'write', 'approve']])
+      ),
+      ENGINEER: Object.fromEntries(
+        allModules.map(m => [m, ['read', 'write']])
+      ),
+      STAFF: {
+        ...Object.fromEntries(allModules.map(m => [m, ['read']])),
         communication: ['read', 'write'],
-        documentManagement: ['read', 'write'],
-        scheduling: ['read', 'write']
       },
-      PROJECT_MANAGER: {
-        projectManagement: ['read', 'write', 'approve'],
-        resourceAllocation: ['read', 'write', 'approve'],
-        costManagement: ['read', 'write', 'approve'],
-        riskManagement: ['read', 'write', 'approve'],
-        stakeholderManagement: ['read', 'write', 'approve'],
-        qualityManagement: ['read', 'write', 'approve'],
-        scheduleManagement: ['read', 'write', 'approve']
-      },
-      ADMIN: {
-        systemAdministration: ['read', 'write', 'approve'],
-        userManagement: ['read', 'write', 'approve'],
-        projectManagement: ['read', 'write', 'approve'],
-        resourceAllocation: ['read', 'write', 'approve'],
-        costManagement: ['read', 'write', 'approve'],
-        riskManagement: ['read', 'write', 'approve'],
-        stakeholderManagement: ['read', 'write', 'approve'],
-        qualityManagement: ['read', 'write', 'approve'],
-        scheduleManagement: ['read', 'write', 'approve']
-      }
     };
 
-    return permissions[role] || {};
+    const ROLE_TIER_MAP = {
+      ADMIN: {
+        ...TIERS.PROJECT_MANAGER,
+        systemAdministration: ['read', 'write', 'approve'],
+        userManagement:       ['read', 'write', 'approve'],
+      },
+      PROJECT_MANAGER: TIERS.PROJECT_MANAGER,
+      ENGINEER:        TIERS.ENGINEER,
+      STAFF:           TIERS.STAFF,
+    };
+
+    return ROLE_TIER_MAP[role] || TIERS.STAFF;
   };
 
   // Instance methods
@@ -266,15 +227,15 @@ module.exports = (sequelize, DataTypes) => {
   };
 
   User.prototype.isApprover = function() {
-    return ['CIVIL_ENGINEER', 'ARCHITECT', 'SITE_ENGINEER', 'PROJECT_MANAGER', 'ADMIN'].includes(this.role);
+    return ['PROJECT_MANAGER', 'ADMIN'].includes(this.role);
   };
 
   User.prototype.canApproveMaterials = function() {
-    return this.role === 'CIVIL_ENGINEER' || this.role === 'ADMIN';
+    return ['ENGINEER', 'PROJECT_MANAGER', 'ADMIN'].includes(this.role);
   };
 
   User.prototype.canApproveFinishingMaterials = function() {
-    return this.role === 'ARCHITECT' || this.role === 'ADMIN';
+    return ['ENGINEER', 'PROJECT_MANAGER', 'ADMIN'].includes(this.role);
   };
 
   return User;

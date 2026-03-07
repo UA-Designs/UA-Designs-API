@@ -2,6 +2,8 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { User } = require('../../models');
+const { authenticateToken } = require('../../middleware/auth');
+const { authorize } = require('../../middleware/authorize');
 const router = express.Router();
 
 // Health check route
@@ -14,7 +16,7 @@ router.get('/health', (req, res) => {
 });
 
 // Register new user (Admin only)
-router.post('/register', async (req, res) => {
+router.post('/register', authenticateToken, authorize('ADMIN_ONLY'), async (req, res) => {
   try {
     const { firstName, lastName, email, password, role, employeeId } = req.body;
 
@@ -175,25 +177,9 @@ router.post('/login', async (req, res) => {
 });
 
 // Get current user profile (alias for /me)
-router.get('/me', async (req, res) => {
+router.get('/me', authenticateToken, async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: 'Access token required'
-      });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'ua-designs-secret-key');
-    const user = await User.findByPk(decoded.userId);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
+    const user = req.user;
 
     res.json({
       success: true,
@@ -208,12 +194,6 @@ router.get('/me', async (req, res) => {
       }
     });
   } catch (error) {
-    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid or expired token'
-      });
-    }
     console.error('Get profile error:', error);
     res.status(500).json({
       success: false,
@@ -224,25 +204,9 @@ router.get('/me', async (req, res) => {
 });
 
 // Get current user profile
-router.get('/profile', async (req, res) => {
+router.get('/profile', authenticateToken, async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: 'Access token required'
-      });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'ua-designs-secret-key');
-    const user = await User.findByPk(decoded.userId);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
+    const user = req.user;
 
     res.json({
       success: true,
@@ -261,33 +225,24 @@ router.get('/profile', async (req, res) => {
     });
   } catch (error) {
     console.error('Profile error:', error);
-    res.status(401).json({
+    res.status(500).json({
       success: false,
-      message: 'Invalid token'
+      message: 'Internal server error',
+      error: error.message
     });
   }
 });
 
 // Change password
-router.post('/change-password', async (req, res) => {
+router.post('/change-password', authenticateToken, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    const token = req.headers.authorization?.split(' ')[1];
+    const user = req.user;
 
-    if (!token) {
-      return res.status(401).json({
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
         success: false,
-        message: 'Access token required'
-      });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'ua-designs-secret-key');
-    const user = await User.findByPk(decoded.userId);
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
+        message: 'currentPassword and newPassword are required'
       });
     }
 

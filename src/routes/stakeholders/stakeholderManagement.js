@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 
-const { authenticateToken, authorizeRoles } = require('../../middleware/auth');
+const { authenticateToken } = require('../../middleware/auth');
+const { authorize } = require('../../middleware/authorize');
 const stakeholderController = require('../../controllers/Stakeholders/stakeholderController');
 const communicationController = require('../../controllers/Stakeholders/communicationController');
 const {
@@ -13,7 +14,7 @@ const {
   validateSubmitFeedback
 } = require('../../middleware/stakeholderValidation');
 
-const PM_ADMIN = ['ADMIN', 'PROJECT_MANAGER'];
+const PM_ADMIN = 'MANAGER_AND_ABOVE';
 
 // Health check
 router.get('/health', (req, res) => {
@@ -30,15 +31,15 @@ router.get('/summary/:projectId', authenticateToken, stakeholderController.getSu
 
 // --- Communication management stand-alone (must be before /:id) ---
 router.get('/communications/all', authenticateToken, communicationController.getAll);
-router.put('/communications/:commId', authenticateToken, validateUpdateCommunication, communicationController.update);
-router.delete('/communications/:commId', authenticateToken, authorizeRoles(...PM_ADMIN), communicationController.delete);
+router.put('/communications/:commId', authenticateToken, authorize('ENGINEER_AND_ABOVE'), validateUpdateCommunication, communicationController.update);
+router.delete('/communications/:commId', authenticateToken, authorize(PM_ADMIN), communicationController.delete);
 
 // --- Stakeholder CRUD ---
 router.get('/', authenticateToken, stakeholderController.getAll);
-router.post('/', authenticateToken, authorizeRoles(...PM_ADMIN), validateCreateStakeholder, stakeholderController.create);
+router.post('/', authenticateToken, authorize(PM_ADMIN), validateCreateStakeholder, stakeholderController.create);
 router.get('/:id', authenticateToken, stakeholderController.getById);
-router.put('/:id', authenticateToken, authorizeRoles(...PM_ADMIN), validateUpdateStakeholder, stakeholderController.update);
-router.delete('/:id', authenticateToken, authorizeRoles(...PM_ADMIN), stakeholderController.delete);
+router.put('/:id', authenticateToken, authorize(PM_ADMIN), validateUpdateStakeholder, stakeholderController.update);
+router.delete('/:id', authenticateToken, authorize(PM_ADMIN), stakeholderController.delete);
 
 // --- Communications (scoped to stakeholder) ---
 router.get('/:id/communications', authenticateToken, communicationController.getCommunicationsByStakeholder);
@@ -46,7 +47,7 @@ router.post('/:id/communications', authenticateToken, validateCreateCommunicatio
 
 // --- Engagement & Feedback (scoped to stakeholder) ---
 router.get('/:id/engagement', authenticateToken, communicationController.getEngagementHistory);
-router.post('/:id/engagement', authenticateToken, validateRecordEngagement, communicationController.recordEngagement);
+router.post('/:id/engagement', authenticateToken, authorize('ENGINEER_AND_ABOVE'), validateRecordEngagement, communicationController.recordEngagement);
 router.post('/:id/feedback', authenticateToken, validateSubmitFeedback, communicationController.submitFeedback);
 
 module.exports = router;

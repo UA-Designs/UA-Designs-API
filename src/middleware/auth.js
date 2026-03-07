@@ -1,6 +1,10 @@
 const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 
+// New RBAC middleware — prefer these over the legacy helpers below
+// const { authorize, authorizeOwnerOr } = require('./authorize');
+// const { ROLES, ROLE_GROUPS, ACCESS_LEVELS } = require('./roles');
+
 // Authentication middleware
 const authenticateToken = async (req, res, next) => {
   try {
@@ -35,7 +39,7 @@ const authenticateToken = async (req, res, next) => {
   }
 };
 
-// Role-based authorization middleware
+// Role-based authorization middleware (legacy — use authorize() from ./authorize instead)
 const authorizeRoles = (...roles) => {
   return (req, res, next) => {
     if (!req.user) {
@@ -77,37 +81,12 @@ const authorizePermission = (module, action) => {
   };
 };
 
-// UA Designs specific role checks
-const isCivilEngineer = (req, res, next) => {
-  if (req.user.role === 'CIVIL_ENGINEER') {
-    next();
-  } else {
-    res.status(403).json({
-      success: false,
-      message: 'Civil Engineer access required'
-    });
-  }
-};
-
-const isArchitect = (req, res, next) => {
-  if (req.user.role === 'ARCHITECT') {
-    next();
-  } else {
-    res.status(403).json({
-      success: false,
-      message: 'Architect access required'
-    });
-  }
-};
-
+// Legacy role-specific middleware — use authorize() from middleware/authorize.js instead
 const isProjectManager = (req, res, next) => {
-  if (req.user.role === 'PROJECT_MANAGER') {
+  if (req.user.role === 'PROJECT_MANAGER' || req.user.role === 'ADMIN') {
     next();
   } else {
-    res.status(403).json({
-      success: false,
-      message: 'Project Manager access required'
-    });
+    res.status(403).json({ success: false, message: 'Project Manager access required' });
   }
 };
 
@@ -115,10 +94,7 @@ const isAdmin = (req, res, next) => {
   if (req.user.role === 'ADMIN') {
     next();
   } else {
-    res.status(403).json({
-      success: false,
-      message: 'Admin access required'
-    });
+    res.status(403).json({ success: false, message: 'Admin access required' });
   }
 };
 
@@ -126,8 +102,6 @@ module.exports = {
   authenticateToken,
   authorizeRoles,
   authorizePermission,
-  isCivilEngineer,
-  isArchitect,
   isProjectManager,
   isAdmin
 }; 

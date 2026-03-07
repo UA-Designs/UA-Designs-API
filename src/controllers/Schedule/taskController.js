@@ -11,21 +11,12 @@ class TaskController {
       const { projectId } = req.params;
       const filters = req.query;
 
-      // Verify project exists and user has access
+      // Verify project exists
       const project = await Project.findByPk(projectId);
       if (!project) {
         return res.status(404).json({
           success: false,
           message: 'Project not found'
-        });
-      }
-
-      // Check user permissions
-      if (req.user.role !== 'ADMIN' && 
-          project.projectManagerId !== req.user.id) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied to this project'
         });
       }
 
