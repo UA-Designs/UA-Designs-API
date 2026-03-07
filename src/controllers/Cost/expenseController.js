@@ -1,5 +1,9 @@
 const { Expense, Budget, Project, Task, User, CostCategory } = require('../../models');
 const { Op } = require('sequelize');
+const path = require('path');
+const fs = require('fs');
+
+const UPLOAD_DIR = path.join(__dirname, '../../../uploads/receipts');
 
 /**
  * Expense Controller
@@ -17,7 +21,7 @@ class ExpenseController {
         name,
         description,
         amount,
-        currency = 'USD',
+        currency = 'PHP',
         category,
         subcategory,
         date,
@@ -178,6 +182,16 @@ class ExpenseController {
             model: Budget,
             as: 'budget',
             attributes: ['id', 'name', 'amount']
+          },
+          {
+            model: User,
+            as: 'submitter',
+            attributes: ['id', 'firstName', 'lastName', 'email']
+          },
+          {
+            model: User,
+            as: 'approver',
+            attributes: ['id', 'firstName', 'lastName', 'email']
           }
         ],
         order: [[sortBy, sortOrder.toUpperCase()]],
@@ -232,6 +246,16 @@ class ExpenseController {
             model: Task,
             as: 'task',
             attributes: ['id', 'name', 'status']
+          },
+          {
+            model: User,
+            as: 'submitter',
+            attributes: ['id', 'firstName', 'lastName', 'email']
+          },
+          {
+            model: User,
+            as: 'approver',
+            attributes: ['id', 'firstName', 'lastName', 'email']
           }
         ]
       });
@@ -626,6 +650,141 @@ class ExpenseController {
       res.status(500).json({
         success: false,
         message: 'Failed to fetch expense summary',
+        error: error.message
+      });
+    }
+  }
+  /**
+   * Upload a receipt to an expense
+   * POST /api/cost/expenses/:id/receipts
+   */
+  static async uploadReceipt(req, res) {
+    try {
+      const { id } = req.params;
+
+      const expense = await Expense.findByPk(id);
+      if (!expense) {
+        // Clean up the uploaded file if expense not found
+        if (req.file) fs.unlink(req.file.path, () => {});
+        return res.status(404).json({
+          success: false,
+          message: 'Expense not found'
+        });
+      }
+
+      // Permission check: owner, ADMIN, or PROJECT_MANAGER
+      const userRole = req.user?.role;
+      const isOwner = expense.submittedBy === req.user?.id;
+      if (!isOwner && !['ADMIN', 'PROJECT_MANAGER'].includes(userRole)) {
+        if (req.file) fs.unlink(req.file.path, () => {});
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: only the expense owner, ADMIN, or PROJECT_MANAGER can upload receipts'
+        });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: 'No file provided. Send a file as the "receipt" field in multipart/form-data.'
+        });
+      }
+
+      const currentAttachments = expense.attachments || [];
+      if (currentAttachments.length >= 5) {
+        fs.unlink(req.file.path, () => {});
+        return res.status(400).json({
+          success: false,
+          message: 'Maximum of 5 receipts per expense has been reached'
+        });
+      }
+
+      const attachment = {
+        filename: req.file.filename,
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        size: req.file.size,
+        url: `/uploads/receipts/${req.file.filename}`,
+        uploadedAt: new Date().toISOString(),
+        uploadedBy: req.user?.id
+      };
+
+      await expense.update({ attachments: [...currentAttachments, attachment] });
+
+      res.json({
+        success: true,
+        message: 'Receipt uploaded successfully',
+        data: expense
+      });
+    } catch (error) {
+      if (req.file) fs.unlink(req.file.path, () => {});
+      console.error('Upload receipt error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to upload receipt',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Delete a receipt from an expense by attachment index
+   * DELETE /api/cost/expenses/:id/receipts/:index
+   */
+  static async deleteReceipt(req, res) {
+    try {
+      const { id, index } = req.params;
+      const attachmentIndex = parseInt(index, 10);
+
+      const expense = await Expense.findByPk(id);
+      if (!expense) {
+        return res.status(404).json({
+          success: false,
+          message: 'Expense not found'
+        });
+      }
+
+      // Permission check: owner, ADMIN, or PROJECT_MANAGER
+      const userRole = req.user?.role;
+      const isOwner = expense.submittedBy === req.user?.id;
+      if (!isOwner && !['ADMIN', 'PROJECT_MANAGER'].includes(userRole)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: only the expense owner, ADMIN, or PROJECT_MANAGER can delete receipts'
+        });
+      }
+
+      const currentAttachments = expense.attachments || [];
+      if (isNaN(attachmentIndex) || attachmentIndex < 0 || attachmentIndex >= currentAttachments.length) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid attachment index: ${index}. Valid range is 0–${currentAttachments.length - 1}.`
+        });
+      }
+
+      const attachment = currentAttachments[attachmentIndex];
+
+      // Delete file from disk
+      const filePath = path.join(UPLOAD_DIR, attachment.filename);
+      if (fs.existsSync(filePath)) {
+        fs.unlink(filePath, (err) => {
+          if (err) console.error('Failed to delete receipt file:', err);
+        });
+      }
+
+      const updatedAttachments = currentAttachments.filter((_, i) => i !== attachmentIndex);
+      await expense.update({ attachments: updatedAttachments });
+
+      res.json({
+        success: true,
+        message: 'Receipt deleted successfully',
+        data: expense
+      });
+    } catch (error) {
+      console.error('Delete receipt error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to delete receipt',
         error: error.message
       });
     }
