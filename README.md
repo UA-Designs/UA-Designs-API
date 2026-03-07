@@ -1,386 +1,264 @@
 # UA Designs API
 
-Backend API for UA Designs PMBOK-aligned Project Management System - Construction Industry Optimized
+Backend API for UA Designs PMBOK-aligned Project Management System — Construction Industry Optimized.
 
-## 🏗️ Overview
+## Overview
 
-This is the backend API for a comprehensive project management system designed specifically for construction companies, following PMBOK (Project Management Body of Knowledge) standards. The system provides robust APIs for managing all aspects of construction projects from planning to completion.
+REST API for managing construction projects following PMBOK standards. Covers scheduling, cost management, resource tracking, risk management, stakeholder communications, and analytics.
 
-## 🚀 Features
+**Stack:** Node.js + Express, Sequelize ORM, PostgreSQL (prod) / SQLite (dev/test), JWT auth.
 
-### PMBOK Knowledge Areas
-- **Schedule Management** - Gantt charts, critical path, resource allocation
-- **Cost Management** - Budget tracking, cost variance analysis, earned value
-- **Resource Management** - Team allocation, equipment tracking, skills matrix
-- **Communications** - Stakeholder communication, meeting logs, reports
-- **Risk Management** - Risk register, mitigation strategies, contingency planning
+## Prerequisites
 
-### Construction-Specific Features
-- **Equipment Management** - Equipment tracking, maintenance schedules, utilization
-- **Material Management** - Inventory tracking, procurement, waste management
-- **Labor Management** - Time tracking, productivity metrics, safety compliance
-- **Safety Management** - Incident reporting, safety inspections, compliance tracking
-- **Progress Tracking** - Photo documentation, milestone tracking, progress reports
+- Node.js 18+
+- npm 9+
+- PostgreSQL 14+ (production) — not needed for development with SQLite
 
-## 🛠️ Technology Stack
+## Setup
 
-- **Runtime:** Node.js 18+
-- **Framework:** Express.js
-- **Database:** SQLite (development) / PostgreSQL (production)
-- **ORM:** Sequelize
-- **Authentication:** JWT
-- **File Upload:** Multer
-- **Documentation:** PDF generation, Excel export
-- **Real-time:** WebSocket support
-- **Security:** Helmet, CORS, Rate limiting
-
-## 📋 Prerequisites
-
-- Node.js 18.0.0 or higher
-- npm 9.0.0 or higher
-- Git
-
-## 🚀 Quick Start
-
-### 1. Clone the Repository
 ```bash
+# 1. Clone and install
 git clone https://github.com/UA-Designs/UA-Designs-API.git
 cd UA-Designs-API
-```
-
-### 2. Install Dependencies
-```bash
 npm install
-```
 
-### 3. Environment Setup
-```bash
-# Copy environment template
-cp env.example .env
+# 2. Configure environment
+cp env.development .env
+# Edit .env if needed — defaults work for local dev with PostgreSQL
 
-# Edit .env with your configuration
-```
-
-## 👥 Team Setup (Quick Start for Group Members)
-
-### For New Team Members
-
-1. **Clone the repository**:
-```bash
-git clone https://github.com/UA-Designs/UA-Designs-API.git
-cd UA-Designs-API
-```
-
-2. **Install dependencies**:
-```bash
-npm install
-```
-
-3. **Set up team environment**:
-```bash
-# Copy team environment file
-cp env.team .env
-```
-
-4. **Choose your database option**:
-
-#### Option A: SQLite (Simplest for Development)
-```bash
-# No additional setup needed - SQLite file included
-```
-
-#### Option B: Shared PostgreSQL with Docker (Recommended)
-```bash
-# Start shared database
-docker-compose up -d
-
-# Access database admin panel at http://localhost:8080
-# Login: team_user / team_password123
-```
-
-#### Option C: Cloud Database (Supabase)
-1. Get connection details from your team lead
-2. Update the `.env` file with the provided credentials
-
-5. **Run database migration**:
-```bash
-node src/database/migrate.js
-```
-
-6. **Seed initial data** (optional):
-```bash
-node src/database/seed.js
-```
-
-7. **Start the development server**:
-```bash
-npm start
-```
-
-The API will be available at `http://localhost:5000`
-
-### Database Access Options
-
-| Option | Difficulty | Best For | Setup Time |
-|--------|------------|----------|------------|
-| SQLite | ⭐ Easy | Solo development | 1 minute |
-| Docker PostgreSQL | ⭐⭐ Medium | Local team development | 5 minutes |
-| Cloud Database | ⭐⭐⭐ Advanced | Remote team collaboration | 10 minutes |
-
-### Troubleshooting
-
-**If you get permission errors when pushing to GitHub:**
-- Ask your team lead to add you as a collaborator to the repository
-- Or use the "Create Fork" option in VS Code and work with pull requests
-
-**If database connection fails:**
-- Check your `.env` file has the correct database credentials
-- Ensure the database server is running (for PostgreSQL options)
-- Verify your internet connection (for cloud databases)
-
-#### Environment Variables
-Create a `.env` file in the root directory with the following variables:
-
-```env
-# Server Configuration
-NODE_ENV=development
-PORT=5000
-HOST=localhost
-
-# Database Configuration
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=ua_designs_pms
-DB_USER=your_db_user
-DB_PASSWORD=your_db_password
-DB_DIALECT=postgresql
-# For SQLite (development only)
-# DB_STORAGE=./database.sqlite
-
-# JWT Configuration
-JWT_SECRET=your-super-secret-jwt-key-here
-JWT_EXPIRES_IN=24h
-JWT_REFRESH_SECRET=your-refresh-secret-key
-JWT_REFRESH_EXPIRES_IN=7d
-
-# Email Configuration (for notifications)
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USER=your-email@gmail.com
-EMAIL_PASSWORD=your-app-password
-EMAIL_FROM=noreply@uadesigns.com
-
-# File Upload Configuration
-UPLOAD_PATH=./uploads
-MAX_FILE_SIZE=10485760
-ALLOWED_FILE_TYPES=jpg,jpeg,png,pdf,doc,docx,xls,xlsx
-
-# AWS Configuration (for file storage)
-AWS_ACCESS_KEY_ID=your-aws-access-key
-AWS_SECRET_ACCESS_KEY=your-aws-secret-key
-AWS_REGION=us-east-1
-AWS_S3_BUCKET=ua-designs-uploads
-
-# Pusher Configuration (for real-time features)
-PUSHER_APP_ID=your-pusher-app-id
-PUSHER_KEY=your-pusher-key
-PUSHER_SECRET=your-pusher-secret
-PUSHER_CLUSTER=us2
-
-# Rate Limiting
-RATE_LIMIT_WINDOW_MS=900000
-RATE_LIMIT_MAX_REQUESTS=100
-
-# CORS Configuration
-CORS_ORIGIN=http://localhost:5173,http://localhost:3000
-CORS_CREDENTIALS=true
-
-# Logging
-LOG_LEVEL=info
-LOG_FILE=./logs/app.log
-
-# Security
-BCRYPT_ROUNDS=12
-SESSION_SECRET=your-session-secret-key
-
-# External APIs
-WEATHER_API_KEY=your-weather-api-key
-MAPS_API_KEY=your-google-maps-api-key
-
-# Development Tools
-DEBUG=ua-designs:*
-NODEMON_IGNORE=node_modules,logs,uploads
-```
-
-**Important Security Notes:**
-- Never commit your `.env` file to version control
-- Use strong, unique secrets for JWT_SECRET and SESSION_SECRET
-- Generate secure passwords for database access
-- Use environment-specific values for production
-
-### 4. Database Setup
-```bash
-# Run migrations
+# 3. Run database migration
 npm run migrate
 
-# Seed initial data (optional)
+# 4. Seed demo data (optional — creates sample projects, users, tasks, costs, etc.)
 npm run seed
-```
 
-### 5. Start Development Server
-```bash
+# 5. Start development server
 npm run dev
 ```
 
-The API will be available at `http://localhost:5000`
+The API runs at **http://localhost:5000**. Visit it in a browser to see the admin dashboard.
 
-## 📚 API Documentation
+### Using SQLite (no database server needed)
 
-### Base URL
-```
-http://localhost:5000/api
-```
+Edit your `.env` and set:
 
-### Authentication
-All protected routes require a JWT token in the Authorization header:
-```
-Authorization: Bearer <your-jwt-token>
+```env
+DB_DIALECT=sqlite
+DB_STORAGE=./database.sqlite
 ```
 
-### Main Endpoints
+Then run `npm run migrate` and `npm run seed` as normal.
 
-#### Authentication
-- `POST /api/auth/login` - User login
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/forgot-password` - Password reset request
-- `POST /api/auth/reset-password` - Password reset
+## Environment Variables
 
-#### Projects
-- `GET /api/projects` - List all projects
-- `POST /api/projects` - Create new project
-- `GET /api/projects/:id` - Get project details
-- `PUT /api/projects/:id` - Update project
-- `DELETE /api/projects/:id` - Delete project
+Copy `env.example` for a full reference. Key variables:
 
-#### Tasks & Scheduling
-- `GET /api/schedule/tasks` - List tasks
-- `POST /api/schedule/tasks` - Create task
-- `PUT /api/schedule/tasks/:id` - Update task
-- `GET /api/schedule/gantt` - Get Gantt chart data
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NODE_ENV` | `development` | Environment mode |
+| `PORT` | `5000` | Server port |
+| `DB_DIALECT` | `postgres` | `postgres` or `sqlite` |
+| `DB_HOST` | `localhost` | PostgreSQL host |
+| `DB_PORT` | `5432` | PostgreSQL port |
+| `DB_NAME` | `ua_designs_pms` | Database name |
+| `DB_USER` | `postgres` | Database user |
+| `DB_PASSWORD` | `postgres` | Database password |
+| `DB_STORAGE` | — | SQLite file path (when `DB_DIALECT=sqlite`) |
+| `JWT_SECRET` | — | **Required.** Secret for signing JWTs |
+| `JWT_EXPIRES_IN` | `24h` | Token expiry duration |
 
-#### Cost Management
-- `GET /api/cost/budget` - Get budget information
-- `POST /api/cost/expenses` - Record expense
-- `GET /api/cost/variance` - Cost variance analysis
+## Authentication & Roles
 
-#### Risk Management
-- `GET /api/risk/register` - Risk register
-- `POST /api/risk/register` - Add new risk
-- `PUT /api/risk/register/:id` - Update risk
+JWT-based auth. Include the token in all requests:
 
-#### Reports
-- `GET /api/reports/project/:id` - Project report
-- `GET /api/reports/cost/:id` - Cost report
-- `GET /api/reports/schedule/:id` - Schedule report
+```
+Authorization: Bearer <token>
+```
 
-## 🗂️ Project Structure
+### Roles
+
+| Role | Access |
+|------|--------|
+| `ADMIN` | Unrestricted — user management, all CRUD |
+| `PROJECT_MANAGER` | Full project control — create/edit projects, budgets, schedules, risks |
+| `ENGINEER` | Write access — update tasks, input costs/resources, create risks |
+| `STAFF` | Read-only on project data, can input communications |
+
+### Demo Accounts (after seeding)
+
+| Email | Password | Role |
+|-------|----------|------|
+| `admin@uadesigns.com` | `password123` | ADMIN |
+| `manager@uadesigns.com` | `password123` | PROJECT_MANAGER |
+| `engineer@uadesigns.com` | `password123` | ENGINEER |
+| `staff@uadesigns.com` | `password123` | STAFF |
+
+The first user registered gets full access. Additional users are registered by an ADMIN via `POST /api/auth/register`.
+
+## API Endpoints
+
+**Base URL:** `http://localhost:5000/api`
+
+### Auth
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| POST | `/auth/login` | Public | Login, returns JWT |
+| POST | `/auth/register` | ADMIN | Register new user |
+| GET | `/auth/me` | Auth | Current user info |
+| GET | `/auth/profile` | Auth | User profile |
+| POST | `/auth/change-password` | Auth | Change password |
+
+### Projects
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| GET | `/projects` | Auth | List projects (paginated, filterable) |
+| POST | `/projects` | Manager+ | Create project |
+| GET | `/projects/:id` | Auth | Project details with dashboard |
+| PUT | `/projects/:id` | Owner/Admin | Update project |
+| PATCH | `/projects/:id/status` | Owner/Admin | Update status |
+| PATCH | `/projects/:id/assign-manager` | Admin | Assign PM |
+| DELETE | `/projects/:id` | Admin | Delete project |
+
+### Schedule (Tasks & Dependencies)
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| GET | `/schedule/tasks` | Auth | List tasks |
+| POST | `/schedule/tasks` | Manager+ | Create task |
+| PUT | `/schedule/tasks/:id` | Engineer+ | Update task |
+| PATCH | `/schedule/tasks/:id/status` | Engineer+ | Update task status |
+| DELETE | `/schedule/tasks/:id` | Manager+ | Delete task |
+| GET | `/schedule/dependencies` | Auth | List dependencies |
+| POST | `/schedule/dependencies` | Manager+ | Create dependency |
+| GET | `/schedule/schedule` | Auth | Project schedule view |
+
+### Cost Management
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| GET | `/cost/costs` | Auth | List costs |
+| POST | `/cost/costs` | Engineer+ | Create cost item |
+| PUT | `/cost/costs/:id` | Engineer+ | Update cost |
+| DELETE | `/cost/costs/:id` | Manager+ | Delete cost |
+| GET | `/cost/budgets` | Auth | List budgets |
+| POST | `/cost/budgets` | Manager+ | Create budget |
+| GET | `/cost/expenses` | Auth | List expenses |
+| POST | `/cost/expenses` | Engineer+ | Create expense |
+| POST | `/cost/expenses/:id/receipts` | Auth | Upload receipt |
+| GET | `/cost/analysis/:projectId` | Auth | Cost analysis |
+
+### Risk Management
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| GET | `/risk/risks` | Auth | List risks |
+| POST | `/risk/risks` | Engineer+ | Create risk |
+| PUT | `/risk/risks/:id` | Engineer+ | Update risk |
+| DELETE | `/risk/risks/:id` | Manager+ | Delete risk |
+| POST | `/risk/risks/:id/mitigations` | Manager+ | Add mitigation |
+
+### Resources
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| GET | `/resources/materials` | Auth | List materials |
+| POST | `/resources/materials` | Engineer+ | Add material |
+| GET | `/resources/labor` | Auth | List labor entries |
+| GET | `/resources/equipment` | Auth | List equipment |
+| GET | `/resources/team` | Auth | List team members |
+| POST | `/resources/team` | Manager+ | Add team member |
+
+### Stakeholders
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| GET | `/stakeholders` | Auth | List stakeholders |
+| POST | `/stakeholders` | Manager+ | Create stakeholder |
+| POST | `/stakeholders/:id/communications` | Auth | Log communication |
+| POST | `/stakeholders/:id/feedback` | Auth | Submit feedback |
+
+### Analytics & Audit
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| GET | `/analytics/overview` | Auth | System-wide analytics |
+| GET | `/analytics/project/:id` | Auth | Project analytics |
+| GET | `/audit` | Admin | Audit log |
+
+### Users
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| GET | `/users` | Manager+ | List users |
+| POST | `/users` | Admin | Create user |
+| GET | `/users/:id` | Self/Manager+ | User details |
+| PUT | `/users/:id` | Self/Admin | Update user |
+| PATCH | `/users/:id/deactivate` | Admin | Deactivate user |
+
+## Testing
+
+Tests use an in-memory SQLite database — no external services needed.
+
+```bash
+# Run all tests
+npm test
+
+# Run a specific test file
+npx jest tests/integration/auth/auth.test.js
+
+# Run tests matching a pattern
+npx jest --testPathPattern=rbac
+
+# Run with coverage
+npx jest --coverage
+```
+
+**Test count:** 705 tests across 29 suites (unit + integration).
+
+## Scripts
+
+| Script | Command | Description |
+|--------|---------|-------------|
+| `npm start` | `node src/server.js` | Production server |
+| `npm run dev` | `nodemon src/server.js` | Dev server with auto-reload |
+| `npm test` | `jest` | Run test suite |
+| `npm run migrate` | `node src/database/migrate.js` | Run database migrations |
+| `npm run seed` | `node src/database/seed.js` | Seed demo data |
+| `npm run lint` | `eslint src/` | Lint source code |
+
+## Project Structure
 
 ```
 src/
-├── config/           # Database and app configuration
-├── database/         # Migration and seeding scripts
-├── middleware/       # Authentication and other middleware
-├── models/           # Sequelize models
-│   ├── Project/      # Project-related models
-│   ├── Task/         # Task and scheduling models
-│   ├── User/         # User management models
-│   ├── Cost/         # Cost management models
-│   ├── Risk/         # Risk management models
-│   └── ...           # Other PMBOK knowledge areas
-├── routes/           # API route handlers
-│   ├── auth/         # Authentication routes
-│   ├── projects/     # Project management routes
-│   ├── schedule/     # Scheduling routes
-│   ├── cost/         # Cost management routes
-│   ├── risk/         # Risk management routes
-│   └── ...           # Other knowledge area routes
-└── server.js         # Main server file
+├── config/            # Database configuration
+├── controllers/       # Request handlers
+│   ├── Analytics/
+│   ├── Cost/          # Budget, cost, expense controllers
+│   ├── Resources/
+│   ├── Risk/
+│   ├── Schedule/
+│   └── Stakeholders/
+├── database/          # Migration and seed scripts
+├── middleware/
+│   ├── auth.js        # JWT authentication
+│   ├── authorize.js   # Role-based access control
+│   ├── roles.js       # Role constants and access levels
+│   ├── auditLog.js    # Request audit logging
+│   └── upload.js      # File upload (multer)
+├── models/            # Sequelize models
+│   ├── User/
+│   ├── Project/
+│   ├── Cost/
+│   ├── Risk/
+│   ├── Schedule/
+│   ├── Resources/
+│   ├── Stakeholder/
+│   └── AuditLog/
+├── routes/            # Express route definitions
+├── services/          # Business logic layer
+├── utils/             # Shared helpers
+└── server.js          # App entry point
+
+tests/
+├── setup.js           # Global test config (in-memory SQLite)
+├── helpers/           # Test utilities and seed data
+├── unit/              # Unit tests
+└── integration/       # Integration tests (one folder per module)
 ```
 
-## 🔧 Available Scripts
+## License
 
-- `npm start` - Start production server
-- `npm run dev` - Start development server with nodemon
-- `npm run build` - Build for production
-- `npm test` - Run tests
-- `npm run migrate` - Run database migrations
-- `npm run seed` - Seed database with initial data
-- `npm run lint` - Run ESLint
-- `npm run lint:fix` - Fix ESLint errors
-
-## 🔒 Security Features
-
-- JWT-based authentication
-- Password hashing with bcrypt
-- Rate limiting
-- CORS protection
-- Helmet security headers
-- Input validation and sanitization
-- SQL injection prevention
-
-## 📊 Database Schema
-
-The system uses a comprehensive database schema supporting:
-- User management and roles
-- Project hierarchy and relationships
-- Task dependencies and scheduling
-- Cost tracking and budgeting
-- Risk assessment and mitigation
-- Resource allocation
-- Quality management
-- Communication logs
-
-## 🚀 Deployment
-
-### Production Environment
-1. Set up PostgreSQL database
-2. Configure environment variables
-3. Run migrations: `npm run migrate`
-4. Start server: `npm start`
-
-### Docker Support
-```bash
-# Build image
-docker build -t ua-designs-api .
-
-# Run container
-docker run -p 5000:5000 ua-designs-api
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature-name`
-3. Commit changes: `git commit -am 'Add feature'`
-4. Push to branch: `git push origin feature-name`
-5. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the UNLICENSED License - see the LICENSE file for details.
-
-## 🆘 Support
-
-For support and questions:
-- Create an issue in the repository
-- Contact the development team
-- Check the documentation in the `docs/` folder
-
-## 🔗 Related Projects
-
-- **Frontend:** [UA-Designs-Frontend](https://github.com/UA-Designs/UA-Designs-Frontend) - React frontend application
-- **Documentation:** See `docs/` folder for detailed guides
-
----
-
-**Built with ❤️ for UA Designs Construction Management**
+UNLICENSED
