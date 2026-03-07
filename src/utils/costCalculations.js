@@ -242,7 +242,7 @@ const Currency = {
   /**
    * Format amount with currency symbol
    */
-  format: (amount, currency = 'USD', locale = 'en-US') => {
+  format: (amount, currency = 'PHP', locale = 'en-PH') => {
     return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: currency

@@ -17,7 +17,7 @@ class CostController {
         name,
         type,
         amount,
-        currency = 'USD',
+        currency = 'PHP',
         date,
         description,
         taskId,

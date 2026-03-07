@@ -388,7 +388,7 @@ const BudgetFormat = {
   /**
    * Format as currency
    */
-  currency: (amount, currency = 'USD', locale = 'en-US') => {
+  currency: (amount, currency = 'PHP', locale = 'en-PH') => {
     return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: currency,

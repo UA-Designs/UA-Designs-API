@@ -16,7 +16,7 @@ class BudgetController {
       const {
         name,
         amount,
-        currency = 'USD',
+        currency = 'PHP',
         description,
         projectId,
         startDate,

@@ -15,7 +15,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     currency: {
       type: DataTypes.STRING,
-      defaultValue: 'USD'
+      defaultValue: 'PHP'
     },
     status: {
       type: DataTypes.ENUM('PLANNED', 'APPROVED', 'REVISED', 'CLOSED'),

@@ -25,7 +25,7 @@ beforeAll(async () => {
     email: 'pm@uadesigns.com'
   }));
   memberUser = await User.create(createTestUser({
-    role: 'TEAM_MEMBER',
+    role: 'ENGINEER',
     email: 'member@uadesigns.com'
   }));
   unrelatedPmUser = await User.create(createTestUser({
@@ -302,7 +302,7 @@ describe('Projects API', () => {
       expect(res.status).toBe(201);
     });
 
-    it('should return 403 for TEAM_MEMBER', async () => {
+    it('should return 403 for ENGINEER', async () => {
       const res = await request(app)
         .post('/api/projects/')
         .set('Authorization', `Bearer ${memberToken}`)

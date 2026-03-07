@@ -22,7 +22,7 @@ beforeAll(async () => {
     email: 'pm@uadesigns.com'
   }));
   memberUser = await User.create(createTestUser({
-    role: 'TEAM_MEMBER',
+    role: 'ENGINEER',
     email: 'member@uadesigns.com'
   }));
 
@@ -69,7 +69,7 @@ describe('Users API', () => {
       expect(res.body.success).toBe(true);
     });
 
-    it('should return 403 for TEAM_MEMBER', async () => {
+    it('should return 403 for ENGINEER', async () => {
       const res = await request(app)
         .get('/api/users/')
         .set('Authorization', `Bearer ${memberToken}`);
@@ -167,13 +167,13 @@ describe('Users API', () => {
 
     it('should return users filtered by role as PM', async () => {
       const res = await request(app)
-        .get('/api/users/role/TEAM_MEMBER')
+        .get('/api/users/role/ENGINEER')
         .set('Authorization', `Bearer ${pmToken}`);
 
       expect(res.status).toBe(200);
     });
 
-    it('should return 403 for TEAM_MEMBER', async () => {
+    it('should return 403 for ENGINEER', async () => {
       const res = await request(app)
         .get('/api/users/role/ADMIN')
         .set('Authorization', `Bearer ${memberToken}`);
@@ -185,7 +185,7 @@ describe('Users API', () => {
   // --- Get user by ID ---
 
   describe('GET /api/users/:id', () => {
-    it('should return own profile as TEAM_MEMBER', async () => {
+    it('should return own profile as ENGINEER', async () => {
       const res = await request(app)
         .get(`/api/users/${memberUser.id}`)
         .set('Authorization', `Bearer ${memberToken}`);
@@ -212,7 +212,7 @@ describe('Users API', () => {
       expect(res.status).toBe(200);
     });
 
-    it('should return 403 when TEAM_MEMBER views other user', async () => {
+    it('should return 403 when ENGINEER views other user', async () => {
       const res = await request(app)
         .get(`/api/users/${adminUser.id}`)
         .set('Authorization', `Bearer ${memberToken}`);
@@ -258,7 +258,7 @@ describe('Users API', () => {
       expect(res.status).toBe(200);
     });
 
-    it('should return 403 when TEAM_MEMBER views other user permissions', async () => {
+    it('should return 403 when ENGINEER views other user permissions', async () => {
       const res = await request(app)
         .get(`/api/users/${adminUser.id}/permissions`)
         .set('Authorization', `Bearer ${memberToken}`);
@@ -281,7 +281,7 @@ describe('Users API', () => {
           lastName: 'Employee',
           email: 'newemployee@uadesigns.com',
           password: 'password',
-          role: 'TEAM_MEMBER'
+          role: 'ENGINEER'
         });
 
       expect(res.status).toBe(201);
@@ -301,7 +301,7 @@ describe('Users API', () => {
           lastName: 'User',
           email: 'another@uadesigns.com',
           password: 'password',
-          role: 'TEAM_MEMBER'
+          role: 'ENGINEER'
         });
 
       expect(res.status).toBe(403);
@@ -316,7 +316,7 @@ describe('Users API', () => {
           lastName: 'User',
           email: 'newemployee@uadesigns.com',
           password: 'password',
-          role: 'TEAM_MEMBER'
+          role: 'ENGINEER'
         });
 
       expect(res.status).toBe(400);
@@ -339,7 +339,7 @@ describe('Users API', () => {
           lastName: 'Auth',
           email: 'noauth@uadesigns.com',
           password: 'password',
-          role: 'TEAM_MEMBER'
+          role: 'ENGINEER'
         });
 
       expect(res.status).toBe(401);

@@ -19,7 +19,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     currency: {
       type: DataTypes.STRING,
-      defaultValue: 'USD'
+      defaultValue: 'PHP'
     },
     category: {
       type: DataTypes.ENUM('MATERIAL', 'LABOR', 'EQUIPMENT', 'OVERHEAD', 'SUBCONTRACTOR', 'PERMITS', 'OTHER'),

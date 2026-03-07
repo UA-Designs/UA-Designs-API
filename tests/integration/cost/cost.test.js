@@ -23,7 +23,7 @@ beforeAll(async () => {
 
   adminUser = await User.create(createTestUser({ role: 'ADMIN', email: 'admin-cost@uadesigns.com' }));
   pmUser = await User.create(createTestUser({ role: 'PROJECT_MANAGER', email: 'pm-cost@uadesigns.com' }));
-  memberUser = await User.create(createTestUser({ role: 'TEAM_MEMBER', email: 'member-cost@uadesigns.com' }));
+  memberUser = await User.create(createTestUser({ role: 'ENGINEER', email: 'member-cost@uadesigns.com' }));
 
   testProject = await Project.create({
     ...createTestProject(),
@@ -353,7 +353,7 @@ describe('Cost Management API', () => {
         expect(res.status).toBe(404);
       });
 
-      it('should return 403 for TEAM_MEMBER role', async () => {
+      it('should return 403 for ENGINEER role', async () => {
         const res = await request(app)
           .patch(`/api/cost/costs/${createdCostId}/status`)
           .set('Authorization', `Bearer ${memberToken}`)
@@ -487,7 +487,7 @@ describe('Cost Management API', () => {
         expect(res.body.message).toContain('Project not found');
       });
 
-      it('should return 403 for TEAM_MEMBER role', async () => {
+      it('should return 403 for ENGINEER role', async () => {
         const res = await request(app)
           .post('/api/cost/budgets')
           .set('Authorization', `Bearer ${memberToken}`)
@@ -609,7 +609,7 @@ describe('Cost Management API', () => {
         expect(res.status).toBe(404);
       });
 
-      it('should return 403 for TEAM_MEMBER role', async () => {
+      it('should return 403 for ENGINEER role', async () => {
         const res = await request(app)
           .put(`/api/cost/budgets/${createdBudgetId}`)
           .set('Authorization', `Bearer ${memberToken}`)
@@ -698,7 +698,7 @@ describe('Cost Management API', () => {
         expect(res.status).toBe(404);
       });
 
-      it('should return 403 for TEAM_MEMBER', async () => {
+      it('should return 403 for ENGINEER', async () => {
         const res = await request(app)
           .post(`/api/cost/budgets/${createdBudgetId}/revise`)
           .set('Authorization', `Bearer ${memberToken}`)
@@ -869,7 +869,7 @@ describe('Cost Management API', () => {
         expect(res.body.message).toContain('deleted');
       });
 
-      it('should return 403 for TEAM_MEMBER role', async () => {
+      it('should return 403 for ENGINEER role', async () => {
         const budget = await Budget.create({
           name: 'Member Delete Test',
           amount: 5000,
@@ -1170,7 +1170,7 @@ describe('Cost Management API', () => {
         expect(res.status).toBe(404);
       });
 
-      it('should return 403 for TEAM_MEMBER role', async () => {
+      it('should return 403 for ENGINEER role', async () => {
         const expense = await Expense.create({
           name: 'Member Approve Test',
           amount: 500,
@@ -1242,7 +1242,7 @@ describe('Cost Management API', () => {
         expect(res.body.message).toContain('Cannot reject');
       });
 
-      it('should return 403 for TEAM_MEMBER role', async () => {
+      it('should return 403 for ENGINEER role', async () => {
         const expense = await Expense.create({
           name: 'Member Reject Test',
           amount: 500,
@@ -1360,7 +1360,7 @@ describe('Cost Management API', () => {
         expect(res.body.message).toContain('Expense IDs');
       });
 
-      it('should return 403 for TEAM_MEMBER role', async () => {
+      it('should return 403 for ENGINEER role', async () => {
         const res = await request(app)
           .post('/api/cost/expenses/bulk-approve')
           .set('Authorization', `Bearer ${memberToken}`)

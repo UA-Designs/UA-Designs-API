@@ -19,7 +19,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     currency: {
       type: DataTypes.STRING,
-      defaultValue: 'USD'
+      defaultValue: 'PHP'
     },
     date: {
       type: DataTypes.DATE,

@@ -34,15 +34,17 @@ class TeamService {
     ];
 
     if (search) {
-      include[1].where = {
-        [Op.or]: [
-          { firstName: { [Op.like]: `%${search}%` } },
-          { lastName: { [Op.like]: `%${search}%` } },
-          { email: { [Op.like]: `%${search}%` } }
-        ]
-      };
-      include[1].required = true;
+      where[Op.or] = [
+        { name: { [Op.like]: `%${search}%` } },
+        { email: { [Op.like]: `%${search}%` } },
+        { '$user.firstName$': { [Op.like]: `%${search}%` } },
+        { '$user.lastName$': { [Op.like]: `%${search}%` } },
+        { '$user.email$': { [Op.like]: `%${search}%` } }
+      ];
     }
+
+    // LEFT JOIN — don't exclude external members who have no linked user account
+    include[1].required = false;
 
     const result = await TeamMember.findAndCountAll({
       where,
@@ -72,7 +74,8 @@ class TeamService {
         {
           model: User,
           as: 'user',
-          attributes: ['id', 'firstName', 'lastName', 'email', 'role']
+          attributes: ['id', 'firstName', 'lastName', 'email', 'role'],
+          required: false
         },
         {
           model: SkillsMatrix,
@@ -92,7 +95,7 @@ class TeamService {
     await member.update(data);
     return member.reload({
       include: [
-        { model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email', 'role'] }
+        { model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email', 'role'], required: false }
       ]
     });
   }

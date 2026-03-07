@@ -1,13 +1,28 @@
 const request = require('supertest');
+const bcrypt = require('bcryptjs');
 const app = require('../../../src/server');
 const { sequelize, User } = require('../../../src/models');
 const { generateAuthToken } = require('../../helpers/testHelpers');
 
 let registeredToken;
 let testUserId;
+let adminToken;
 
 beforeAll(async () => {
   await sequelize.sync({ force: true });
+
+  // Create an admin user directly in the DB so we can get an admin token
+  // for register endpoint (which now requires ADMIN auth)
+  const hashedPw = await bcrypt.hash('adminpassword', 10);
+  const adminUser = await User.create({
+    firstName: 'Admin',
+    lastName: 'Bootstrap',
+    email: 'admin-bootstrap@uadesigns.com',
+    password: hashedPw,
+    role: 'ADMIN',
+    isActive: true,
+  });
+  adminToken = generateAuthToken(adminUser);
 });
 
 afterAll(async () => {
@@ -31,6 +46,7 @@ describe('Auth API', () => {
     it('should register a new user with valid data', async () => {
       const res = await request(app)
         .post('/api/auth/register')
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({
           firstName: 'Alice',
           lastName: 'Smith',
@@ -52,6 +68,7 @@ describe('Auth API', () => {
     it('should return 400 for duplicate email', async () => {
       const res = await request(app)
         .post('/api/auth/register')
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({
           firstName: 'Bob',
           lastName: 'Smith',
@@ -67,6 +84,7 @@ describe('Auth API', () => {
     it('should return 400 for missing required fields', async () => {
       const res = await request(app)
         .post('/api/auth/register')
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({ email: 'incomplete@uadesigns.com' });
 
       expect(res.status).toBe(400);
@@ -77,11 +95,12 @@ describe('Auth API', () => {
     it('should return 400 when firstName is missing', async () => {
       const res = await request(app)
         .post('/api/auth/register')
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({
           lastName: 'Smith',
           email: 'nofirstname@uadesigns.com',
           password: 'password',
-          role: 'TEAM_MEMBER'
+          role: 'ENGINEER'
         });
 
       expect(res.status).toBe(400);
@@ -91,6 +110,7 @@ describe('Auth API', () => {
     it('should return 400 when role is missing', async () => {
       const res = await request(app)
         .post('/api/auth/register')
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({
           firstName: 'Test',
           lastName: 'User',
@@ -168,7 +188,7 @@ describe('Auth API', () => {
         lastName: 'User',
         email: 'inactive@uadesigns.com',
         password: hashedPw,
-        role: 'TEAM_MEMBER',
+        role: 'ENGINEER',
         isActive: false
       });
 

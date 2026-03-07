@@ -183,8 +183,26 @@ const validateCreateTeamMember = [
     .notEmpty().withMessage('Project ID is required')
     .isUUID().withMessage('Project ID must be a valid UUID'),
   body('userId')
-    .notEmpty().withMessage('User ID is required')
+    .optional({ nullable: true })
     .isUUID().withMessage('User ID must be a valid UUID'),
+  body('name')
+    .optional()
+    .trim()
+    .isLength({ max: 255 }).withMessage('Name must be at most 255 characters'),
+  body('email')
+    .optional({ nullable: true })
+    .isEmail().withMessage('Email must be valid'),
+  body('phone')
+    .optional()
+    .trim()
+    .isLength({ max: 50 }).withMessage('Phone must be at most 50 characters'),
+  body()
+    .custom((_, { req }) => {
+      if (!req.body.userId && !req.body.name) {
+        throw new Error('Either userId (for an existing user) or name (for an external member) is required');
+      }
+      return true;
+    }),
   body('role')
     .optional()
     .trim(),
@@ -205,6 +223,20 @@ const validateCreateTeamMember = [
 
 const validateUpdateTeamMember = [
   param('id').isUUID().withMessage('Team member ID must be a valid UUID'),
+  body('name')
+    .optional()
+    .trim()
+    .isLength({ max: 255 }).withMessage('Name must be at most 255 characters'),
+  body('email')
+    .optional({ nullable: true })
+    .isEmail().withMessage('Email must be valid'),
+  body('phone')
+    .optional()
+    .trim()
+    .isLength({ max: 50 }).withMessage('Phone must be at most 50 characters'),
+  body('role')
+    .optional()
+    .trim(),
   body('allocation')
     .optional()
     .isFloat({ min: 0, max: 100 }).withMessage('Allocation must be between 0 and 100'),
