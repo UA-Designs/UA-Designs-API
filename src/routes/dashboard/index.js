@@ -1,31 +1,61 @@
 const express = require('express');
 const router = express.Router();
+const { Op } = require('sequelize');
 const { authenticateToken } = require('../../middleware/auth');
+const { Project, Task, User, Budget, Expense, Risk } = require('../../models');
 
 // Dashboard controller functions
 const getStats = async (req, res) => {
   try {
-    // Mock dashboard stats data
-    const stats = {
-      totalProjects: 12,
-      activeProjects: 8,
-      completedProjects: 4,
-      totalTasks: 156,
-      completedTasks: 89,
-      overdueTasks: 7,
-      totalBudget: 2500000,
-      spentBudget: 1800000,
-      remainingBudget: 700000,
-      teamMembers: 24,
-      activeUsers: 18,
-      riskItems: 3,
-      qualityIssues: 2,
-      changeRequests: 5
-    };
+    const [
+      totalProjects,
+      activeProjects,
+      completedProjects,
+      totalTasks,
+      completedTasks,
+      overdueTasks,
+      totalBudgetRaw,
+      spentBudgetRaw,
+      teamMembers,
+      riskItems
+    ] = await Promise.all([
+      Project.count(),
+      Project.count({ where: { status: 'active' } }),
+      Project.count({ where: { status: 'completed' } }),
+      Task.count(),
+      Task.count({ where: { status: 'COMPLETED' } }),
+      Task.count({
+        where: {
+          endDate: { [Op.lt]: new Date() },
+          status: { [Op.ne]: 'COMPLETED' }
+        }
+      }),
+      Budget.sum('amount'),
+      Expense.sum('amount', {
+        where: { status: { [Op.in]: ['APPROVED', 'PAID'] } }
+      }),
+      User.count({ where: { isActive: true } }),
+      Risk.count({ where: { status: { [Op.ne]: 'CLOSED' } } })
+    ]);
+
+    const totalBudget = parseFloat(totalBudgetRaw) || 0;
+    const spentBudget = parseFloat(spentBudgetRaw) || 0;
 
     res.json({
       success: true,
-      data: stats,
+      data: {
+        totalProjects,
+        activeProjects,
+        completedProjects,
+        totalTasks,
+        completedTasks,
+        overdueTasks,
+        totalBudget,
+        spentBudget,
+        remainingBudget: totalBudget - spentBudget,
+        teamMembers,
+        riskItems
+      },
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -40,53 +70,36 @@ const getStats = async (req, res) => {
 
 const getProjectProgress = async (req, res) => {
   try {
-    // Mock project progress data
-    const projectProgress = [
-      {
-        id: 1,
-        name: 'Office Building Construction',
-        progress: 75,
-        status: 'In Progress',
-        startDate: '2024-01-15',
-        endDate: '2024-06-30',
-        budget: 500000,
-        spent: 375000,
-        phase: 'Construction'
-      },
-      {
-        id: 2,
-        name: 'Residential Complex',
-        progress: 45,
-        status: 'In Progress',
-        startDate: '2024-03-01',
-        endDate: '2024-12-15',
-        budget: 800000,
-        spent: 360000,
-        phase: 'Foundation'
-      },
-      {
-        id: 3,
-        name: 'Shopping Mall Renovation',
-        progress: 90,
-        status: 'Near Completion',
-        startDate: '2023-11-01',
-        endDate: '2024-02-28',
-        budget: 300000,
-        spent: 270000,
-        phase: 'Finishing'
-      },
-      {
-        id: 4,
-        name: 'Industrial Warehouse',
-        progress: 100,
-        status: 'Completed',
-        startDate: '2023-08-01',
-        endDate: '2023-12-31',
-        budget: 400000,
-        spent: 395000,
-        phase: 'Completed'
-      }
-    ];
+    const projects = await Project.findAll({
+      include: [
+        {
+          model: Task,
+          as: 'tasks',
+          attributes: ['id', 'status']
+        }
+      ],
+      order: [['updatedAt', 'DESC']]
+    });
+
+    const projectProgress = projects.map(project => {
+      const tasks = project.tasks || [];
+      const totalTasks = tasks.length;
+      const completedTasks = tasks.filter(t => t.status === 'COMPLETED').length;
+      const progress = totalTasks > 0
+        ? Math.round((completedTasks / totalTasks) * 100)
+        : (project.progress || 0);
+
+      return {
+        id: project.id,
+        name: project.name,
+        progress,
+        status: project.status,
+        startDate: project.startDate,
+        endDate: project.endDate,
+        budget: parseFloat(project.budget) || 0,
+        phase: project.phase || null
+      };
+    });
 
     res.json({
       success: true,
@@ -105,69 +118,28 @@ const getProjectProgress = async (req, res) => {
 
 const getTaskProgress = async (req, res) => {
   try {
-    // Mock task progress data
-    const taskProgress = [
-      {
-        id: 1,
-        name: 'Foundation Excavation',
-        projectId: 1,
-        projectName: 'Office Building Construction',
-        progress: 100,
-        status: 'Completed',
-        assignedTo: 'John Smith',
-        dueDate: '2024-02-15',
-        priority: 'High',
-        phase: 'Foundation'
-      },
-      {
-        id: 2,
-        name: 'Steel Frame Installation',
-        projectId: 1,
-        projectName: 'Office Building Construction',
-        progress: 80,
-        status: 'In Progress',
-        assignedTo: 'Mike Johnson',
-        dueDate: '2024-04-30',
-        priority: 'High',
-        phase: 'Construction'
-      },
-      {
-        id: 3,
-        name: 'Electrical Wiring',
-        projectId: 1,
-        projectName: 'Office Building Construction',
-        progress: 60,
-        status: 'In Progress',
-        assignedTo: 'Sarah Wilson',
-        dueDate: '2024-05-15',
-        priority: 'Medium',
-        phase: 'MEP'
-      },
-      {
-        id: 4,
-        name: 'Interior Finishing',
-        projectId: 1,
-        projectName: 'Office Building Construction',
-        progress: 30,
-        status: 'Not Started',
-        assignedTo: 'David Brown',
-        dueDate: '2024-06-15',
-        priority: 'Medium',
-        phase: 'Finishing'
-      },
-      {
-        id: 5,
-        name: 'Site Preparation',
-        projectId: 2,
-        projectName: 'Residential Complex',
-        progress: 100,
-        status: 'Completed',
-        assignedTo: 'Lisa Davis',
-        dueDate: '2024-03-15',
-        priority: 'High',
-        phase: 'Pre-Construction'
-      }
-    ];
+    const tasks = await Task.findAll({
+      include: [
+        { model: Project, attributes: ['id', 'name'] },
+        { model: User, as: 'assignedUser', attributes: ['id', 'firstName', 'lastName'] }
+      ],
+      order: [['updatedAt', 'DESC']],
+      limit: 50
+    });
+
+    const taskProgress = tasks.map(task => ({
+      id: task.id,
+      name: task.name,
+      projectId: task.Project ? task.Project.id : null,
+      projectName: task.Project ? task.Project.name : null,
+      progress: task.progress || 0,
+      status: task.status,
+      assignedTo: task.assignedUser
+        ? `${task.assignedUser.firstName} ${task.assignedUser.lastName}`
+        : null,
+      dueDate: task.endDate,
+      priority: task.priority
+    }));
 
     res.json({
       success: true,
@@ -186,64 +158,48 @@ const getTaskProgress = async (req, res) => {
 
 const getCostVariance = async (req, res) => {
   try {
-    // Mock cost variance data
-    const costVariance = [
-      {
-        id: 1,
-        projectName: 'Office Building Construction',
-        budgetedCost: 500000,
-        actualCost: 375000,
-        variance: -125000,
-        variancePercentage: -25,
-        status: 'Under Budget',
-        category: 'Labor',
-        month: '2024-01'
-      },
-      {
-        id: 2,
-        projectName: 'Office Building Construction',
-        budgetedCost: 200000,
-        actualCost: 180000,
-        variance: -20000,
-        variancePercentage: -10,
-        status: 'Under Budget',
-        category: 'Materials',
-        month: '2024-01'
-      },
-      {
-        id: 3,
-        projectName: 'Residential Complex',
-        budgetedCost: 300000,
-        actualCost: 360000,
-        variance: 60000,
-        variancePercentage: 20,
-        status: 'Over Budget',
-        category: 'Labor',
-        month: '2024-01'
-      },
-      {
-        id: 4,
-        projectName: 'Shopping Mall Renovation',
-        budgetedCost: 150000,
-        actualCost: 135000,
-        variance: -15000,
-        variancePercentage: -10,
-        status: 'Under Budget',
-        category: 'Materials',
-        month: '2024-01'
-      },
-      {
-        id: 5,
-        projectName: 'Industrial Warehouse',
-        budgetedCost: 100000,
-        actualCost: 105000,
-        variance: 5000,
-        variancePercentage: 5,
-        status: 'Over Budget',
-        category: 'Equipment',
-        month: '2024-01'
-      }
-    ];
+    const projects = await Project.findAll({
+      include: [
+        {
+          model: Budget,
+          as: 'budgets',
+          attributes: ['amount']
+        },
+        {
+          model: Expense,
+          as: 'expenses',
+          attributes: ['amount', 'status']
+        }
+      ]
+    });
+
+    const costVariance = projects.map(project => {
+      const budgets = project.budgets || [];
+      const expenses = project.expenses || [];
+
+      const budgetedCost = budgets.length > 0
+        ? budgets.reduce((sum, b) => sum + parseFloat(b.amount), 0)
+        : parseFloat(project.budget) || 0;
+
+      const actualCost = expenses
+        .filter(e => ['APPROVED', 'PAID'].includes(e.status))
+        .reduce((sum, e) => sum + parseFloat(e.amount), 0);
+
+      const variance = actualCost - budgetedCost;
+      const variancePercentage = budgetedCost > 0
+        ? parseFloat(((variance / budgetedCost) * 100).toFixed(2))
+        : 0;
+
+      return {
+        id: project.id,
+        projectName: project.name,
+        budgetedCost,
+        actualCost,
+        variance,
+        variancePercentage,
+        status: variance > 0 ? 'Over Budget' : variance < 0 ? 'Under Budget' : 'On Budget'
+      };
+    });
 
     res.json({
       success: true,
@@ -263,67 +219,82 @@ const getCostVariance = async (req, res) => {
 const getRecentActivities = async (req, res) => {
   try {
     const { limit = 10 } = req.query;
-    
-    // Mock recent activities data for now
-    const recentActivities = [
-      {
-        id: 1,
-        type: 'task_completed',
-        message: 'Foundation Excavation completed by John Smith',
-        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
-        projectId: 1,
-        projectName: 'Office Building Construction',
-        userId: 'user1',
-        userName: 'John Smith'
-      },
-      {
-        id: 2,
-        type: 'project_updated',
-        message: 'Project status updated to In Progress',
-        timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(), // 4 hours ago
-        projectId: 2,
-        projectName: 'Residential Complex',
-        userId: 'user2',
-        userName: 'Jane Smith'
-      },
-      {
-        id: 3,
-        type: 'cost_updated',
-        message: 'Budget variance reported: +5% over budget',
-        timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(), // 6 hours ago
-        projectId: 1,
-        projectName: 'Office Building Construction',
-        userId: 'user3',
-        userName: 'Mike Johnson'
-      },
-      {
-        id: 4,
-        type: 'user_login',
-        message: 'User logged in successfully',
-        timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(), // 8 hours ago
-        projectId: null,
-        projectName: null,
-        userId: 'user4',
-        userName: 'Sarah Wilson'
-      },
-      {
-        id: 5,
-        type: 'task_created',
-        message: 'New task created: Steel Frame Installation',
-        timestamp: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(), // 12 hours ago
-        projectId: 1,
-        projectName: 'Office Building Construction',
-        userId: 'user1',
-        userName: 'John Smith'
-      }
-    ];
+    const limitNum = Math.min(parseInt(limit) || 10, 100);
 
-    // Limit the results
-    const limitedActivities = recentActivities.slice(0, parseInt(limit));
+    const [tasks, risks, expenses] = await Promise.all([
+      Task.findAll({
+        include: [
+          { model: Project, attributes: ['id', 'name'] },
+          { model: User, as: 'assignedUser', attributes: ['firstName', 'lastName'] }
+        ],
+        order: [['updatedAt', 'DESC']],
+        limit: limitNum
+      }),
+      Risk.findAll({
+        include: [
+          { model: Project, attributes: ['id', 'name'] },
+          { model: User, as: 'riskOwner', attributes: ['firstName', 'lastName'] }
+        ],
+        order: [['updatedAt', 'DESC']],
+        limit: limitNum
+      }),
+      Expense.findAll({
+        include: [
+          { model: Project, as: 'project', attributes: ['id', 'name'] }
+        ],
+        order: [['updatedAt', 'DESC']],
+        limit: limitNum
+      })
+    ]);
+
+    const activities = [];
+
+    tasks.forEach(task => {
+      activities.push({
+        id: task.id,
+        type: 'task',
+        message: `Task "${task.name}" is ${task.status}`,
+        timestamp: task.updatedAt,
+        projectId: task.Project ? task.Project.id : null,
+        projectName: task.Project ? task.Project.name : null,
+        userName: task.assignedUser
+          ? `${task.assignedUser.firstName} ${task.assignedUser.lastName}`
+          : 'Unassigned'
+      });
+    });
+
+    risks.forEach(risk => {
+      activities.push({
+        id: risk.id,
+        type: 'risk',
+        message: `Risk "${risk.title}" is ${risk.status}`,
+        timestamp: risk.updatedAt,
+        projectId: risk.Project ? risk.Project.id : null,
+        projectName: risk.Project ? risk.Project.name : null,
+        userName: risk.riskOwner
+          ? `${risk.riskOwner.firstName} ${risk.riskOwner.lastName}`
+          : 'Unknown'
+      });
+    });
+
+    expenses.forEach(expense => {
+      activities.push({
+        id: expense.id,
+        type: 'expense',
+        message: `Expense "${expense.name}" is ${expense.status}`,
+        timestamp: expense.updatedAt,
+        projectId: expense.project ? expense.project.id : null,
+        projectName: expense.project ? expense.project.name : null,
+        userName: 'N/A'
+      });
+    });
+
+    activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    const limited = activities.slice(0, limitNum);
 
     res.json({
       success: true,
-      data: limitedActivities,
+      data: limited,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -338,60 +309,33 @@ const getRecentActivities = async (req, res) => {
 
 const getRiskMatrix = async (req, res) => {
   try {
-    // Mock risk matrix data for now
-    const riskMatrix = [
-      {
-        id: 1,
-        title: 'Foundation Soil Issues',
-        description: 'Unstable soil conditions discovered during excavation',
-        severity: 'HIGH',
-        probability: 'MEDIUM',
-        impact: 'Schedule delay and additional costs',
-        status: 'ACTIVE',
-        mitigationStrategy: 'Soil stabilization and foundation redesign',
-        projectId: 1,
-        projectName: 'Office Building Construction',
-        taskId: 1,
-        taskName: 'Foundation Excavation',
-        assignedTo: 'John Smith',
-        createdAt: new Date('2024-01-15'),
-        updatedAt: new Date('2024-01-20')
-      },
-      {
-        id: 2,
-        title: 'Material Supply Delay',
-        description: 'Steel delivery delayed due to supplier issues',
-        severity: 'MEDIUM',
-        probability: 'HIGH',
-        impact: 'Construction timeline impact',
-        status: 'ACTIVE',
-        mitigationStrategy: 'Alternative supplier identification and expedited shipping',
-        projectId: 1,
-        projectName: 'Office Building Construction',
-        taskId: 2,
-        taskName: 'Steel Frame Installation',
-        assignedTo: 'Mike Johnson',
-        createdAt: new Date('2024-01-10'),
-        updatedAt: new Date('2024-01-18')
-      },
-      {
-        id: 3,
-        title: 'Weather Conditions',
-        description: 'Heavy rainfall affecting outdoor construction activities',
-        severity: 'MEDIUM',
-        probability: 'HIGH',
-        impact: 'Work stoppage and schedule delays',
-        status: 'ACTIVE',
-        mitigationStrategy: 'Indoor work prioritization and weather monitoring',
-        projectId: 2,
-        projectName: 'Residential Complex',
-        taskId: 5,
-        taskName: 'Site Preparation',
-        assignedTo: 'Lisa Davis',
-        createdAt: new Date('2024-01-05'),
-        updatedAt: new Date('2024-01-15')
-      }
-    ];
+    const risks = await Risk.findAll({
+      where: { status: { [Op.ne]: 'CLOSED' } },
+      include: [
+        { model: Project, attributes: ['id', 'name'] },
+        { model: User, as: 'riskOwner', attributes: ['firstName', 'lastName'] }
+      ],
+      order: [
+        ['impact', 'DESC'],
+        ['probability', 'DESC']
+      ]
+    });
+
+    const riskMatrix = risks.map(risk => ({
+      id: risk.id,
+      title: risk.title,
+      description: risk.description,
+      severity: risk.severity,
+      probability: risk.probability,
+      impact: risk.impact,
+      status: risk.status,
+      projectId: risk.Project ? risk.Project.id : null,
+      projectName: risk.Project ? risk.Project.name : null,
+      assignedTo: risk.riskOwner
+        ? `${risk.riskOwner.firstName} ${risk.riskOwner.lastName}`
+        : null,
+      mitigationStrategy: risk.mitigationStrategy || null
+    }));
 
     res.json({
       success: true,

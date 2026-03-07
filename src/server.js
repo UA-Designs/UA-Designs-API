@@ -63,6 +63,13 @@ app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Audit log middleware — intercepts all state-changing /api requests
+// Placed after body parsing so req.body is available, before route handlers
+app.use('/api', require('./middleware/auditLog'));
+
+// Static file serving for uploaded receipts
+app.use('/uploads', require('express').static(require('path').join(__dirname, '../uploads')));
+
 // Core Project Management Knowledge Areas Routes
 // 1. Project Schedule Management
 app.use('/api/schedule', require('./routes/schedule'));
@@ -89,6 +96,12 @@ app.use('/api/projects', require('./routes/projects'));
 // Dashboard routes
 app.use('/api/dashboard', require('./routes/dashboard'));
 
+// Analytics routes
+app.use('/api/analytics', require('./routes/analytics'));
+
+// Audit log routes (ADMIN only)
+app.use('/api/audit', require('./routes/audit'));
+
 // Additional routes for project management
 
 // Health check
@@ -101,8 +114,11 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Public API endpoints for web interface (no authentication required)
-app.get('/api/public/projects', async (req, res) => {
+// Public API endpoints for web interface
+// NOTE: These require authentication — data should not be served unauthenticated.
+const { authenticateToken } = require('./middleware/auth');
+
+app.get('/api/public/projects', authenticateToken, async (req, res) => {
   try {
     const { Project, User } = require('./models');
     const projects = await Project.findAll({
@@ -128,7 +144,7 @@ app.get('/api/public/projects', async (req, res) => {
   }
 });
 
-app.get('/api/public/users', async (req, res) => {
+app.get('/api/public/users', authenticateToken, async (req, res) => {
   try {
     const { User } = require('./models');
     const users = await User.findAll({
@@ -150,7 +166,7 @@ app.get('/api/public/users', async (req, res) => {
   }
 });
 
-app.get('/api/public/tasks', async (req, res) => {
+app.get('/api/public/tasks', authenticateToken, async (req, res) => {
   try {
     const { Task, Project } = require('./models');
     const tasks = await Task.findAll({
@@ -580,12 +596,32 @@ app.use('*', (req, res) => {
 // Only start listening when this file is run directly (e.g. `node src/server.js`).
 // When imported by tests via require(), no TCP socket is opened so Jest can exit cleanly.
 if (require.main === module) {
-  const server = app.listen(PORT, () => {
-    console.log(`🚀 UA Designs PMS Server running on port ${PORT}`);
-    console.log(`📊 Core Project Management System`);
-    console.log(`🎯 Focused on: Scheduling, Cost, Resources, Risk, Stakeholders`);
-    console.log(`⏰ ${new Date().toISOString()}`);
-  });
+  const { sequelize } = require('./models');
+  const seed = require('./database/seed');
+
+  // In development: drop & recreate all tables so every restart gets a clean,
+  // fully-seeded database. In production: safe non-destructive sync.
+  const forceSync = process.env.NODE_ENV !== 'production';
+  sequelize.sync({ force: forceSync }).then(async () => {
+    console.log('✅ Database synced');
+
+    // Auto-seed in development if AUTO_SEED=true (default in dev)
+    const autoSeed = process.env.AUTO_SEED !== 'false' && process.env.NODE_ENV !== 'production';
+    if (autoSeed) {
+      try {
+        await seed();
+        console.log('✅ Database seeded');
+      } catch (err) {
+        console.error('⚠️  Seed failed (non-fatal):', err.message);
+      }
+    }
+
+    const server = app.listen(PORT, () => {
+      console.log(`🚀 UA Designs PMS Server running on port ${PORT}`);
+      console.log(`📊 Core Project Management System`);
+      console.log(`🎯 Focused on: Scheduling, Cost, Resources, Risk, Stakeholders`);
+      console.log(`⏰ ${new Date().toISOString()}`);
+    });
 
   // Handle server errors
   server.on('error', (error) => {
@@ -603,6 +639,11 @@ if (require.main === module) {
 
   process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    process.exit(1);
+  });
+
+  }).catch(err => {
+    console.error('❌ Failed to sync database:', err);
     process.exit(1);
   });
 }

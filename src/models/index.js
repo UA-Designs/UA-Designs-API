@@ -32,6 +32,9 @@ const Stakeholder = require('./Stakeholder/index');
 const Communication = require('./Stakeholder/Communication/index');
 const StakeholderEngagement = require('./Stakeholder/StakeholderEngagement/index');
 
+// Audit Log
+const AuditLogDef = require('./AuditLog/index');
+
 // Initialize models with sequelize
 const ProjectModel = Project;
 const TaskModel = Task(sequelize, Sequelize);
@@ -53,6 +56,7 @@ const RiskCategoryModel = RiskCategory(sequelize, Sequelize);
 const StakeholderModel = Stakeholder(sequelize, Sequelize);
 const CommunicationModel = Communication(sequelize, Sequelize);
 const StakeholderEngagementModel = StakeholderEngagement(sequelize, Sequelize);
+const AuditLogModel = AuditLogDef(sequelize, Sequelize);
 
 // Define associations for core knowledge areas
 
@@ -191,6 +195,17 @@ ProjectModel.hasMany(StakeholderEngagementModel, { as: 'stakeholderEngagements',
 StakeholderEngagementModel.belongsTo(User, { as: 'assessor', foreignKey: 'assessedBy' });
 User.hasMany(StakeholderEngagementModel, { as: 'conductedEngagements', foreignKey: 'assessedBy' });
 
+// 6. Audit Log
+User.hasMany(AuditLogModel, { as: 'auditLogs', foreignKey: 'userId' });
+AuditLogModel.belongsTo(User, { as: 'user', foreignKey: 'userId' });
+
+// Expense User associations (submitter / approver)
+User.hasMany(ExpenseModel, { as: 'submittedExpenses', foreignKey: 'submittedBy' });
+ExpenseModel.belongsTo(User, { as: 'submitter', foreignKey: 'submittedBy' });
+
+User.hasMany(ExpenseModel, { as: 'approvedExpenses', foreignKey: 'approvedBy' });
+ExpenseModel.belongsTo(User, { as: 'approver', foreignKey: 'approvedBy' });
+
 module.exports = {
   sequelize,
   Sequelize,
@@ -214,5 +229,6 @@ module.exports = {
   TeamMember: TeamMemberModel,
   SkillsMatrix: SkillsMatrixModel,
   ResourceAllocation: ResourceAllocationModel,
-  EquipmentMaintenance: EquipmentMaintenanceModel
+  EquipmentMaintenance: EquipmentMaintenanceModel,
+  AuditLog: AuditLogModel
 }; 

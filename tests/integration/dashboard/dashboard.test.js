@@ -1,15 +1,72 @@
 const request = require('supertest');
 const app = require('../../../src/server');
-const { sequelize, User } = require('../../../src/models');
+const { sequelize, User, Project, Task, Budget, Expense, Risk } = require('../../../src/models');
 const { generateAuthToken, createTestUser } = require('../../helpers/testHelpers');
 
 let authToken;
+let testUser;
+let testProject;
 
 beforeAll(async () => {
   await sequelize.sync({ force: true });
 
-  const testUser = await User.create(createTestUser({ role: 'PROJECT_MANAGER' }));
+  testUser = await User.create(createTestUser({ role: 'PROJECT_MANAGER' }));
   authToken = generateAuthToken(testUser);
+
+  // Create a test project
+  testProject = await Project.create({
+    name: 'Dashboard Test Project',
+    projectType: 'residential',
+    status: 'active',
+    clientName: 'Test Client',
+    budget: 500000,
+    projectManagerId: testUser.id
+  });
+
+  // Create a task assigned to the test user
+  await Task.create({
+    name: 'Dashboard Test Task',
+    projectId: testProject.id,
+    status: 'COMPLETED',
+    priority: 'HIGH',
+    progress: 100,
+    assignedTo: testUser.id,
+    startDate: new Date('2024-01-01'),
+    endDate: new Date('2024-02-01')
+  });
+
+  // Create a budget for cost-variance endpoint
+  await Budget.create({
+    name: 'Dashboard Test Budget',
+    amount: 500000,
+    projectId: testProject.id,
+    status: 'APPROVED',
+    createdBy: testUser.id
+  });
+
+  // Create a paid expense for cost-variance endpoint
+  await Expense.create({
+    name: 'Dashboard Test Expense',
+    amount: 100000,
+    category: 'LABOR',
+    date: new Date(),
+    projectId: testProject.id,
+    status: 'PAID',
+    submittedBy: testUser.id
+  });
+
+  // Create a risk for risk-matrix endpoint
+  await Risk.create({
+    title: 'Dashboard Test Risk',
+    description: 'A test risk for dashboard testing',
+    probability: 0.5,
+    impact: 0.7,
+    severity: 'HIGH',
+    status: 'IDENTIFIED',
+    projectId: testProject.id,
+    identifiedBy: testUser.id,
+    owner: testUser.id
+  });
 });
 
 afterAll(async () => {
