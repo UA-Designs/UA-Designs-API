@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "dev:clean": "node src/database/seed-clean.js && nodemon src/server.js",
-    "dev:demo": "node src/database/seed-demo.js && nodemon src/server.js",
+    "dev:clean": "node src/database/seed-clean.js && SEEDED=true nodemon src/server.js",
+    "dev:demo": "node src/database/seed-demo.js && SEEDED=true nodemon src/server.js",
     "build": "babel src -d dist",
     "test": "jest",
     "migrate": "node src/database/migrate.js",

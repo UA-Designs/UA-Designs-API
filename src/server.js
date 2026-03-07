@@ -597,25 +597,31 @@ app.use('*', (req, res) => {
 // When imported by tests via require(), no TCP socket is opened so Jest can exit cleanly.
 if (require.main === module) {
   const { sequelize } = require('./models');
-  const seed = require('./database/seed');
 
-  // In development: drop & recreate all tables so every restart gets a clean,
-  // fully-seeded database. In production: safe non-destructive sync.
-  const forceSync = process.env.NODE_ENV !== 'production';
-  sequelize.sync({ force: forceSync }).then(async () => {
-    console.log('✅ Database synced');
+  // When SEEDED=true the DB was already set up by a seed script
+  // (e.g. dev:clean or dev:demo), so skip force-sync and auto-seed.
+  const preSeeded = process.env.SEEDED === 'true';
 
-    // Auto-seed in development if AUTO_SEED=true (default in dev)
-    const autoSeed = process.env.AUTO_SEED !== 'false' && process.env.NODE_ENV !== 'production';
-    if (autoSeed) {
-      try {
-        await seed();
-        console.log('✅ Database seeded');
-      } catch (err) {
-        console.error('⚠️  Seed failed (non-fatal):', err.message);
-      }
-    }
+  const initDb = preSeeded
+    ? sequelize.authenticate().then(() => console.log('✅ Database connection verified (pre-seeded)'))
+    : (async () => {
+        const forceSync = process.env.NODE_ENV !== 'production';
+        await sequelize.sync({ force: forceSync });
+        console.log('✅ Database synced');
 
+        const autoSeed = process.env.AUTO_SEED !== 'false' && process.env.NODE_ENV !== 'production';
+        if (autoSeed) {
+          try {
+            const seed = require('./database/seed');
+            await seed();
+            console.log('✅ Database seeded');
+          } catch (err) {
+            console.error('⚠️  Seed failed (non-fatal):', err.message);
+          }
+        }
+      })();
+
+  initDb.then(() => {
     const server = app.listen(PORT, () => {
       console.log(`🚀 UA Designs PMS Server running on port ${PORT}`);
       console.log(`📊 Core Project Management System`);
@@ -623,27 +629,26 @@ if (require.main === module) {
       console.log(`⏰ ${new Date().toISOString()}`);
     });
 
-  // Handle server errors
-  server.on('error', (error) => {
-    console.error('Server error:', error);
-    if (error.code === 'EADDRINUSE') {
-      console.error(`Port ${PORT} is already in use`);
-    }
-  });
+    // Handle server errors
+    server.on('error', (error) => {
+      console.error('Server error:', error);
+      if (error.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} is already in use`);
+      }
+    });
 
-  // Handle uncaught exceptions
-  process.on('uncaughtException', (error) => {
-    console.error('Uncaught Exception:', error);
-    process.exit(1);
-  });
+    // Handle uncaught exceptions
+    process.on('uncaughtException', (error) => {
+      console.error('Uncaught Exception:', error);
+      process.exit(1);
+    });
 
-  process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-    process.exit(1);
-  });
-
+    process.on('unhandledRejection', (reason, promise) => {
+      console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+      process.exit(1);
+    });
   }).catch(err => {
-    console.error('❌ Failed to sync database:', err);
+    console.error('❌ Failed to start server:', err);
     process.exit(1);
   });
 }
