@@ -2,6 +2,10 @@
 node_modules/
 */node_modules/
 
+# Uploaded receipt files (keep directory tracked via .gitkeep)
+uploads/receipts/*
+!uploads/receipts/.gitkeep
+
 # Environment files
 .env
 .env.local
