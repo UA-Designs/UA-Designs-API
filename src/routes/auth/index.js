@@ -3,7 +3,6 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { User } = require('../../models');
 const { authenticateToken } = require('../../middleware/auth');
-const { authorize } = require('../../middleware/authorize');
 const router = express.Router();
 
 // Health check route
@@ -15,8 +14,8 @@ router.get('/health', (req, res) => {
   });
 });
 
-// Register new user (Admin only)
-router.post('/register', authenticateToken, authorize('ADMIN_ONLY'), async (req, res) => {
+// Register new user (public signup with safe role restrictions)
+router.post('/register', async (req, res) => {
   try {
     const { firstName, lastName, email, password, role, employeeId } = req.body;
 
@@ -58,13 +57,18 @@ router.post('/register', authenticateToken, authorize('ADMIN_ONLY'), async (req,
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Public signup must never grant elevated system roles.
+    // If role is omitted/invalid, default to STAFF.
+    const requestedRole = (role || '').toUpperCase();
+    const safeRole = ['ENGINEER', 'STAFF'].includes(requestedRole) ? requestedRole : 'STAFF';
+
     // Create user
     const user = await User.create({
       firstName,
       lastName,
       email,
       password: hashedPassword,
-      role,
+      role: safeRole,
       employeeId,
       isActive: true
     });
