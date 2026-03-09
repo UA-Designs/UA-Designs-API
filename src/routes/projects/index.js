@@ -249,7 +249,7 @@ router.get('/:id/dashboard', authenticateToken, async (req, res) => {
 });
 
 // Create new project
-router.post('/', authenticateToken, authorize('MANAGER_AND_ABOVE'), async (req, res) => {
+router.post('/', authenticateToken, authorize('ENGINEER_AND_ABOVE'), async (req, res) => {
   try {
     const {
       name,
