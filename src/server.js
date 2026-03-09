@@ -10,21 +10,38 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-const allowedOrigins = (process.env.CORS_ORIGIN || '')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+const allowedOrigins = new Set([
+  'https://ua-designs.vercel.app',
+]);
 
-const corsOrigin = allowedOrigins.length
-  ? (origin, callback) => {
-      // Allow non-browser requests (no Origin header) and configured browser origins.
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-        return;
-      }
-      callback(new Error('Not allowed by CORS'));
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow non-browser requests (Render health checks, curl, Postman)
+    if (!origin) {
+      callback(null, true);
+      return;
     }
-  : true;
+
+    const normalized = origin.replace(/\/$/, '');
+
+    // Allow exact production/custom domains
+    if (allowedOrigins.has(normalized)) {
+      callback(null, true);
+      return;
+    }
+
+    // Optional: allow Vercel preview deployments
+    if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(normalized)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error('Not allowed by CORS'));
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: false, // Set true only if using cookie auth.
+};
 
 // Security middleware
 app.use(helmet({
@@ -37,10 +54,8 @@ app.use(helmet({
     },
   },
 }));
-app.use(cors({
-  origin: corsOrigin,
-  credentials: process.env.CORS_CREDENTIALS !== 'false'
-}));
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // Rate limiting - Increased limits for development
 const limiter = rateLimit({
