@@ -9,7 +9,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.UUID,
       allowNull: true, // null for failed logins (unauthenticated attempts)
       references: {
-        model: 'Users',
+        model: 'users',
         key: 'id'
       },
       onDelete: 'SET NULL'
@@ -73,7 +73,7 @@ module.exports = (sequelize, DataTypes) => {
     timestamps: true,
     updatedAt: false, // Audit logs are append-only — no updatedAt column
     paranoid: false,  // Never soft-delete audit logs
-    tableName: 'AuditLogs'
+    tableName: 'audit_logs'
   });
 
   return AuditLog;
