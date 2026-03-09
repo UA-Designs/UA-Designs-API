@@ -1,9 +1,21 @@
 require('dotenv').config();
 
+const normalizeDialect = (dialect) => {
+  if (!dialect) return dialect;
+  return dialect === 'postgresql' ? 'postgres' : dialect;
+};
+
+const configuredDialect = normalizeDialect(process.env.DB_DIALECT);
+
 module.exports = {
   development: {
-    dialect: 'sqlite',
-    storage: './database.sqlite',
+    dialect: configuredDialect || 'sqlite',
+    storage: process.env.DB_STORAGE || './database.sqlite',
+    database: process.env.DB_NAME,
+    username: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
     logging: process.env.NODE_ENV === 'development' ? console.log : false
   },
   test: {
@@ -18,16 +30,17 @@ module.exports = {
     }
   },
   production: {
+    use_env_variable: process.env.DATABASE_URL ? 'DATABASE_URL' : undefined,
     username: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
-    dialect: process.env.DB_DIALECT || 'postgres',
+    dialect: configuredDialect || 'postgres',
     logging: false,
-    dialectOptions: {
+    dialectOptions: configuredDialect === 'sqlite' ? undefined : {
       ssl: {
-        require: true,
+        require: process.env.DB_SSL !== 'false',
         rejectUnauthorized: false
       }
     },

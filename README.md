@@ -38,6 +38,38 @@ npm run dev
 
 The API runs at **http://localhost:5000**. Visit it in a browser to see the admin dashboard.
 
+## Deploying on Render
+
+This repository now includes a Render Blueprint file: `render.yaml`.
+
+### Option A: Blueprint deployment (recommended)
+
+1. Push this repo to GitHub.
+2. In Render, create a **Blueprint** service from the repository.
+3. Render provisions:
+   - one Node web service (`ua-designs-api`)
+   - one managed PostgreSQL database (`ua-designs-db`)
+4. Set `CORS_ORIGIN` in Render to your frontend URL (for example `https://your-frontend.onrender.com`).
+5. Deploy. Verify health at `/api/health`.
+
+### Option B: Manual web service setup
+
+If you create the service manually, use:
+
+- Build Command: `npm ci`
+- Start Command: `npm start`
+- Environment: `Node`
+
+And set these environment variables:
+
+- `NODE_ENV=production`
+- `DB_DIALECT=postgres`
+- `DATABASE_URL` (from your Render Postgres instance)
+- `DB_SSL=true`
+- `JWT_SECRET` (strong random value)
+- `JWT_REFRESH_SECRET` (strong random value)
+- `CORS_ORIGIN` (your deployed frontend origin)
+
 ### Using SQLite (no database server needed)
 
 Edit your `.env` and set:

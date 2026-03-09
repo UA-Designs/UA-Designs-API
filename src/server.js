@@ -10,6 +10,22 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+const allowedOrigins = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const corsOrigin = allowedOrigins.length
+  ? (origin, callback) => {
+      // Allow non-browser requests (no Origin header) and configured browser origins.
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error('Not allowed by CORS'));
+    }
+  : true;
+
 // Security middleware
 app.use(helmet({
   contentSecurityPolicy: {
@@ -22,9 +38,8 @@ app.use(helmet({
   },
 }));
 app.use(cors({
-  origin: 
-    process.env.CORS_ORIGIN,
-  credentials: true
+  origin: corsOrigin,
+  credentials: process.env.CORS_CREDENTIALS !== 'false'
 }));
 
 // Rate limiting - Increased limits for development

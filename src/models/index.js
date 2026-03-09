@@ -4,12 +4,24 @@ const config = require('../config/database');
 const env = process.env.NODE_ENV || 'development';
 const dbConfig = config[env];
 
-const sequelize = new Sequelize({
+const baseOptions = {
   dialect: dbConfig.dialect,
   storage: dbConfig.storage,
   logging: dbConfig.logging,
+  dialectOptions: dbConfig.dialectOptions,
   pool: dbConfig.pool
-});
+};
+
+const sequelize = dbConfig.use_env_variable && process.env[dbConfig.use_env_variable]
+  ? new Sequelize(process.env[dbConfig.use_env_variable], baseOptions)
+  : new Sequelize({
+      database: dbConfig.database,
+      username: dbConfig.username,
+      password: dbConfig.password,
+      host: dbConfig.host,
+      port: dbConfig.port,
+      ...baseOptions
+    });
 
 // Import core models for the 5 knowledge areas
 const User = require('./User/index')(sequelize, Sequelize);
