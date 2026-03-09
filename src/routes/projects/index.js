@@ -488,9 +488,9 @@ router.delete('/:id', authenticateToken, authorize('ADMIN_ONLY'), async (req, re
 router.get('/stats/overview', authenticateToken, async (req, res) => {
   try {
     const totalProjects = await Project.count();
-    const activeProjects = await Project.count({ where: { status: 'IN_PROGRESS' } });
-    const completedProjects = await Project.count({ where: { status: 'COMPLETED' } });
-    const planningProjects = await Project.count({ where: { status: 'PLANNING' } });
+    const activeProjects = await Project.count({ where: { status: 'active' } });
+    const completedProjects = await Project.count({ where: { status: 'completed' } });
+    const planningProjects = await Project.count({ where: { status: 'planning' } });
 
     // Count projects by type
     const typeStats = await Project.findAll({

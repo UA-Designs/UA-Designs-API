@@ -14,9 +14,10 @@ router.get('/health', (req, res) => {
   });
 });
 
-// Get all users (Admin and Project Manager only)
-router.get('/', authenticateToken, authorizeRoles('ADMIN', 'PROJECT_MANAGER'), async (req, res) => {
+// Get all users
+router.get('/', authenticateToken, async (req, res) => {
   try {
+    const isElevated = ['ADMIN', 'PROJECT_MANAGER'].includes(req.user.role);
     const { 
       page = 1, 
       limit = 10, 
@@ -44,9 +45,16 @@ router.get('/', authenticateToken, authorizeRoles('ADMIN', 'PROJECT_MANAGER'), a
       ];
     }
 
+    // Non-admin users get a safe, active-only user directory view.
+    if (!isElevated) {
+      whereClause.isActive = true;
+    }
+
     const { count, rows: users } = await User.findAndCountAll({
       where: whereClause,
-      attributes: { exclude: ['password'] },
+      attributes: isElevated
+        ? { exclude: ['password'] }
+        : ['id', 'firstName', 'lastName', 'email', 'role', 'isActive', 'createdAt'],
       order: [[sortBy, sortOrder.toUpperCase()]],
       limit: parseInt(limit),
       offset: parseInt(offset)
