@@ -672,14 +672,14 @@ class ExpenseController {
         });
       }
 
-      // Permission check: owner, ADMIN, or PROJECT_MANAGER
+      // Permission check: owner, ADMIN, PROJECT_MANAGER, or ARCHITECT
       const userRole = req.user?.role;
       const isOwner = expense.submittedBy === req.user?.id;
-      if (!isOwner && !['ADMIN', 'PROJECT_MANAGER'].includes(userRole)) {
+      if (!isOwner && !['ADMIN', 'PROJECT_MANAGER', 'ARCHITECT'].includes(userRole)) {
         if (req.file) fs.unlink(req.file.path, () => {});
         return res.status(403).json({
           success: false,
-          message: 'Forbidden: only the expense owner, ADMIN, or PROJECT_MANAGER can upload receipts'
+          message: 'Forbidden: only the expense owner, ADMIN, PROJECT_MANAGER, or ARCHITECT can upload receipts'
         });
       }
 
@@ -744,13 +744,13 @@ class ExpenseController {
         });
       }
 
-      // Permission check: owner, ADMIN, or PROJECT_MANAGER
+      // Permission check: owner, ADMIN, PROJECT_MANAGER, or ARCHITECT
       const userRole = req.user?.role;
       const isOwner = expense.submittedBy === req.user?.id;
-      if (!isOwner && !['ADMIN', 'PROJECT_MANAGER'].includes(userRole)) {
+      if (!isOwner && !['ADMIN', 'PROJECT_MANAGER', 'ARCHITECT'].includes(userRole)) {
         return res.status(403).json({
           success: false,
-          message: 'Forbidden: only the expense owner, ADMIN, or PROJECT_MANAGER can delete receipts'
+          message: 'Forbidden: only the expense owner, ADMIN, PROJECT_MANAGER, or ARCHITECT can delete receipts'
         });
       }
 

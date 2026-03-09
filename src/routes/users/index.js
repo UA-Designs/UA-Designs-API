@@ -17,7 +17,7 @@ router.get('/health', (req, res) => {
 // Get all users
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const isElevated = ['ADMIN', 'PROJECT_MANAGER'].includes(req.user.role);
+    const isElevated = ['ADMIN', 'PROJECT_MANAGER', 'ARCHITECT'].includes(req.user.role);
     const { 
       page = 1, 
       limit = 10, 
@@ -89,7 +89,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
 
     // Users can only view their own profile unless they're admin/project manager
-    if (req.user.id !== id && !['ADMIN', 'PROJECT_MANAGER'].includes(req.user.role)) {
+    if (req.user.id !== id && !['ADMIN', 'PROJECT_MANAGER', 'ARCHITECT'].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
         message: 'You can only view your own profile'
@@ -380,7 +380,7 @@ router.delete('/:id', authenticateToken, authorizeRoles('ADMIN'), async (req, re
 });
 
 // Get users by role
-router.get('/role/:role', authenticateToken, authorizeRoles('ADMIN', 'PROJECT_MANAGER'), async (req, res) => {
+router.get('/role/:role', authenticateToken, authorizeRoles('ADMIN', 'PROJECT_MANAGER', 'ARCHITECT'), async (req, res) => {
   try {
     const { role } = req.params;
 

@@ -83,7 +83,7 @@ const authorizePermission = (module, action) => {
 
 // Legacy role-specific middleware — use authorize() from middleware/authorize.js instead
 const isProjectManager = (req, res, next) => {
-  if (req.user.role === 'PROJECT_MANAGER' || req.user.role === 'ADMIN') {
+  if (['PROJECT_MANAGER', 'ARCHITECT', 'ADMIN'].includes(req.user.role)) {
     next();
   } else {
     res.status(403).json({ success: false, message: 'Project Manager access required' });

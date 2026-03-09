@@ -42,6 +42,7 @@ module.exports = (sequelize, DataTypes) => {
     role: {
       type: DataTypes.ENUM(
         'PROJECT_MANAGER',     // Full project control, approval authority
+        'ARCHITECT',           // Technical lead with PM + engineering capabilities
         'ENGINEER',            // Task updates, resource/cost data input
         'STAFF',               // Read-only + communication input
         'ADMIN'                // System administration
@@ -192,6 +193,9 @@ module.exports = (sequelize, DataTypes) => {
       PROJECT_MANAGER: Object.fromEntries(
         allModules.map(m => [m, ['read', 'write', 'approve']])
       ),
+      ARCHITECT: Object.fromEntries(
+        allModules.map(m => [m, ['read', 'write', 'approve']])
+      ),
       ENGINEER: Object.fromEntries(
         allModules.map(m => [m, ['read', 'write']])
       ),
@@ -208,6 +212,7 @@ module.exports = (sequelize, DataTypes) => {
         userManagement:       ['read', 'write', 'approve'],
       },
       PROJECT_MANAGER: TIERS.PROJECT_MANAGER,
+      ARCHITECT:       TIERS.ARCHITECT,
       ENGINEER:        TIERS.ENGINEER,
       STAFF:           TIERS.STAFF,
     };
@@ -227,15 +232,15 @@ module.exports = (sequelize, DataTypes) => {
   };
 
   User.prototype.isApprover = function() {
-    return ['PROJECT_MANAGER', 'ADMIN'].includes(this.role);
+    return ['PROJECT_MANAGER', 'ARCHITECT', 'ADMIN'].includes(this.role);
   };
 
   User.prototype.canApproveMaterials = function() {
-    return ['ENGINEER', 'PROJECT_MANAGER', 'ADMIN'].includes(this.role);
+    return ['ENGINEER', 'PROJECT_MANAGER', 'ARCHITECT', 'ADMIN'].includes(this.role);
   };
 
   User.prototype.canApproveFinishingMaterials = function() {
-    return ['ENGINEER', 'PROJECT_MANAGER', 'ADMIN'].includes(this.role);
+    return ['ENGINEER', 'PROJECT_MANAGER', 'ARCHITECT', 'ADMIN'].includes(this.role);
   };
 
   return User;

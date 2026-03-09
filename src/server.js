@@ -622,14 +622,30 @@ app.use('*', (req, res) => {
 // When imported by tests via require(), no TCP socket is opened so Jest can exit cleanly.
 if (require.main === module) {
   const { sequelize } = require('./models');
+  const ensureArchitectRoleEnum = async () => {
+    // Existing Render Postgres DBs may already have enum_users_role without ARCHITECT.
+    // Add it safely so role inserts/updates work without manual SQL migration.
+    if (sequelize.getDialect() !== 'postgres') return;
+    try {
+      await sequelize.query(`ALTER TYPE "enum_users_role" ADD VALUE IF NOT EXISTS 'ARCHITECT';`);
+    } catch (err) {
+      // Ignore when type does not exist yet (fresh DB before first sync).
+      if (!/enum_users_role|does not exist/i.test(err.message)) {
+        throw err;
+      }
+    }
+  };
 
   // When SEEDED=true the DB was already set up by a seed script
   // (e.g. dev:clean or dev:demo), so skip force-sync and auto-seed.
   const preSeeded = process.env.SEEDED === 'true';
 
   const initDb = preSeeded
-    ? sequelize.authenticate().then(() => console.log('✅ Database connection verified (pre-seeded)'))
+    ? sequelize.authenticate()
+        .then(() => ensureArchitectRoleEnum())
+        .then(() => console.log('✅ Database connection verified (pre-seeded)'))
     : (async () => {
+        await ensureArchitectRoleEnum();
         const forceSync = process.env.NODE_ENV !== 'production';
         await sequelize.sync({ force: forceSync });
         console.log('✅ Database synced');

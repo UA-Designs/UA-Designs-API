@@ -13,6 +13,7 @@
 const ROLES = {
   ADMIN:           'ADMIN',
   PROJECT_MANAGER: 'PROJECT_MANAGER',
+  ARCHITECT:       'ARCHITECT',
   ENGINEER:        'ENGINEER',
   STAFF:           'STAFF',
 };
@@ -22,14 +23,14 @@ const ACCESS_LEVELS = {
   /** System administration actions — ADMIN only */
   ADMIN_ONLY: [ROLES.ADMIN],
 
-  /** Project management decisions — ADMIN + Project Manager */
-  MANAGER_AND_ABOVE: [ROLES.ADMIN, ROLES.PROJECT_MANAGER],
+  /** Project management decisions — ADMIN + Project Manager + Architect */
+  MANAGER_AND_ABOVE: [ROLES.ADMIN, ROLES.PROJECT_MANAGER, ROLES.ARCHITECT],
 
-  /** Operational data entry — ADMIN + Project Manager + Engineer */
-  ENGINEER_AND_ABOVE: [ROLES.ADMIN, ROLES.PROJECT_MANAGER, ROLES.ENGINEER],
+  /** Operational data entry — ADMIN + Project Manager + Architect + Engineer */
+  ENGINEER_AND_ABOVE: [ROLES.ADMIN, ROLES.PROJECT_MANAGER, ROLES.ARCHITECT, ROLES.ENGINEER],
 
   /** Any authenticated user */
-  ALL_ROLES: [ROLES.ADMIN, ROLES.PROJECT_MANAGER, ROLES.ENGINEER, ROLES.STAFF],
+  ALL_ROLES: [ROLES.ADMIN, ROLES.PROJECT_MANAGER, ROLES.ARCHITECT, ROLES.ENGINEER, ROLES.STAFF],
 };
 
 module.exports = { ROLES, ACCESS_LEVELS };

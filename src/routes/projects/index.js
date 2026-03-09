@@ -431,10 +431,10 @@ router.patch('/:id/assign-manager', authenticateToken, authorize('ADMIN_ONLY'), 
       });
     }
 
-    if (!['ADMIN', 'PROJECT_MANAGER'].includes(newManager.role)) {
+    if (!['ADMIN', 'PROJECT_MANAGER', 'ARCHITECT'].includes(newManager.role)) {
       return res.status(400).json({
         success: false,
-        message: 'User must be a project manager or admin to be assigned as project manager'
+        message: 'User must be an architect, project manager, or admin to be assigned as project manager'
       });
     }
 

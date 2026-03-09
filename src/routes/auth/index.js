@@ -60,7 +60,7 @@ router.post('/register', async (req, res) => {
     // Public signup must never grant elevated system roles.
     // If role is omitted/invalid, default to STAFF.
     const requestedRole = (role || '').toUpperCase();
-    const safeRole = ['ENGINEER', 'STAFF'].includes(requestedRole) ? requestedRole : 'STAFF';
+    const safeRole = ['ENGINEER', 'ARCHITECT', 'STAFF'].includes(requestedRole) ? requestedRole : 'STAFF';
 
     // Create user
     const user = await User.create({
