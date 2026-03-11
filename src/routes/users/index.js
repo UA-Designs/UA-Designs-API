@@ -380,7 +380,7 @@ router.delete('/:id', authenticateToken, authorizeRoles('ADMIN'), async (req, re
 });
 
 // Get users by role
-router.get('/role/:role', authenticateToken, authorizeRoles('ADMIN', 'PROJECT_MANAGER', 'ARCHITECT'), async (req, res) => {
+router.get('/role/:role', authenticateToken, authorizeRoles('ADMIN', 'PROJECT_MANAGER', 'ARCHITECT', 'ENGINEER'), async (req, res) => {
   try {
     const { role } = req.params;
 
