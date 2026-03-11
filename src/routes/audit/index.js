@@ -5,7 +5,7 @@ const { AuditLog, User } = require('../../models');
 const { authenticateToken, authorizeRoles } = require('../../middleware/auth');
 
 const adminOnly = [authenticateToken, authorizeRoles('ADMIN')];
-const managerAndAbove = [authenticateToken, authorizeRoles('ADMIN', 'PROJECT_MANAGER', 'ARCHITECT')];
+const auditReaders = [authenticateToken, authorizeRoles('ADMIN', 'PROJECT_MANAGER', 'ARCHITECT', 'ENGINEER')];
 
 // Helper: build a pagination meta object
 function buildMeta(total, page, limit) {
@@ -17,9 +17,9 @@ function buildMeta(total, page, limit) {
   };
 }
 
-// GET /api/audit/logs — ADMIN, PROJECT_MANAGER, ARCHITECT can view
+// GET /api/audit/logs — ADMIN, PROJECT_MANAGER, ARCHITECT, ENGINEER can view
 // Query params: page, limit, userId, action, entity, startDate, endDate, sortOrder
-router.get('/logs', ...managerAndAbove, async (req, res) => {
+router.get('/logs', ...auditReaders, async (req, res) => {
   try {
     const {
       page = 1,
@@ -73,7 +73,7 @@ router.get('/logs', ...managerAndAbove, async (req, res) => {
 });
 
 // GET /api/audit/logs/user/:userId
-router.get('/logs/user/:userId', ...managerAndAbove, async (req, res) => {
+router.get('/logs/user/:userId', ...auditReaders, async (req, res) => {
   try {
     const { userId } = req.params;
     const { page = 1, limit = 25, sortOrder = 'DESC' } = req.query;
@@ -107,7 +107,7 @@ router.get('/logs/user/:userId', ...managerAndAbove, async (req, res) => {
 });
 
 // GET /api/audit/logs/entity/:entity/:entityId
-router.get('/logs/entity/:entity/:entityId', ...managerAndAbove, async (req, res) => {
+router.get('/logs/entity/:entity/:entityId', ...auditReaders, async (req, res) => {
   try {
     const { entity, entityId } = req.params;
     const { page = 1, limit = 25, sortOrder = 'DESC' } = req.query;
@@ -144,7 +144,7 @@ router.get('/logs/entity/:entity/:entityId', ...managerAndAbove, async (req, res
 });
 
 // GET /api/audit/logs/:id  — single entry (placed after named sub-routes to avoid conflicts)
-router.get('/logs/:id', ...managerAndAbove, async (req, res) => {
+router.get('/logs/:id', ...auditReaders, async (req, res) => {
   try {
     const log = await AuditLog.findByPk(req.params.id, {
       include: [{
