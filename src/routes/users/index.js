@@ -17,7 +17,7 @@ router.get('/health', (req, res) => {
 // Get all users
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const isElevated = ['ADMIN', 'PROJECT_MANAGER', 'ARCHITECT'].includes(req.user.role);
+    const isElevated = ['ADMIN', 'PROJECT_MANAGER', 'ARCHITECT', 'ENGINEER'].includes(req.user.role);
     const { 
       page = 1, 
       limit = 10, 
@@ -88,8 +88,8 @@ router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Users can only view their own profile unless they're admin/project manager
-    if (req.user.id !== id && !['ADMIN', 'PROJECT_MANAGER', 'ARCHITECT'].includes(req.user.role)) {
+    // Users can only view their own profile unless elevated (admin/manager/architect/engineer)
+    if (req.user.id !== id && !['ADMIN', 'PROJECT_MANAGER', 'ARCHITECT', 'ENGINEER'].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
         message: 'You can only view your own profile'
@@ -219,8 +219,9 @@ router.put('/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
 
-    // Users can only update their own profile unless they're admin
-    if (req.user.id !== id && req.user.role !== 'ADMIN') {
+    // Users can only update their own profile unless elevated (can edit user roles)
+    const canEditOthers = ['ADMIN', 'PROJECT_MANAGER', 'ARCHITECT', 'ENGINEER'].includes(req.user.role);
+    if (req.user.id !== id && !canEditOthers) {
       return res.status(403).json({
         success: false,
         message: 'You can only update your own profile'
@@ -241,8 +242,8 @@ router.put('/:id', authenticateToken, async (req, res) => {
     delete updateData.createdAt;
     delete updateData.updatedAt;
 
-    // Only admin can change role and isActive
-    if (req.user.role !== 'ADMIN') {
+    // Only elevated roles can change role, isActive, permissions
+    if (!canEditOthers) {
       delete updateData.role;
       delete updateData.isActive;
       delete updateData.permissions;
@@ -412,8 +413,8 @@ router.get('/:id/permissions', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Users can only view their own permissions unless they're admin
-    if (req.user.id !== id && req.user.role !== 'ADMIN') {
+    // Users can only view their own permissions unless elevated
+    if (req.user.id !== id && !['ADMIN', 'PROJECT_MANAGER', 'ARCHITECT', 'ENGINEER'].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
         message: 'You can only view your own permissions'
@@ -488,7 +489,7 @@ router.put('/:id/permissions', authenticateToken, authorizeRoles('ADMIN'), async
 });
 
 // Get user statistics (Admin only)
-router.get('/stats/overview', authenticateToken, authorizeRoles('ADMIN'), async (req, res) => {
+router.get('/stats/overview', authenticateToken, authorizeRoles('ADMIN', 'PROJECT_MANAGER', 'ARCHITECT', 'ENGINEER'), async (req, res) => {
   try {
     const totalUsers = await User.count();
     const activeUsers = await User.count({ where: { isActive: true } });
