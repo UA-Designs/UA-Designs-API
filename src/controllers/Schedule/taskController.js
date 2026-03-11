@@ -84,7 +84,7 @@ class TaskController {
 
       // Check user permissions
       const project = await Project.findByPk(task.projectId);
-      if (req.user.role !== 'ADMIN' && 
+    if (!['ADMIN', 'PROPRIETOR'].includes(req.user.role) && 
           project.projectManagerId !== req.user.id &&
           task.assignedTo !== req.user.id) {
         return res.status(403).json({
@@ -144,7 +144,7 @@ class TaskController {
       }
 
       // Check user permissions
-      if (req.user.role !== 'ADMIN' && 
+    if (!['ADMIN', 'PROPRIETOR'].includes(req.user.role) && 
           project.projectManagerId !== req.user.id) {
         return res.status(403).json({
           success: false,
@@ -224,7 +224,7 @@ class TaskController {
 
       // Check user permissions
       const project = await Project.findByPk(task.projectId);
-      if (req.user.role !== 'ADMIN' && 
+    if (!['ADMIN', 'PROPRIETOR'].includes(req.user.role) && 
           project.projectManagerId !== req.user.id &&
           task.assignedTo !== req.user.id) {
         return res.status(403).json({
@@ -295,7 +295,7 @@ class TaskController {
 
       // Check user permissions
       const project = await Project.findByPk(task.projectId);
-      if (req.user.role !== 'ADMIN' && 
+    if (!['ADMIN', 'PROPRIETOR'].includes(req.user.role) && 
           project.projectManagerId !== req.user.id &&
           task.assignedTo !== req.user.id) {
         return res.status(403).json({
@@ -372,7 +372,7 @@ class TaskController {
 
       // Check user permissions
       const project = await Project.findByPk(task.projectId);
-      if (req.user.role !== 'ADMIN' && 
+    if (!['ADMIN', 'PROPRIETOR'].includes(req.user.role) && 
           project.projectManagerId !== req.user.id) {
         return res.status(403).json({
           success: false,
@@ -433,7 +433,7 @@ class TaskController {
       }
 
       // Check user permissions
-      if (req.user.role !== 'ADMIN' && 
+    if (!['ADMIN', 'PROPRIETOR'].includes(req.user.role) && 
           project.projectManagerId !== req.user.id) {
         return res.status(403).json({
           success: false,
@@ -474,7 +474,7 @@ class TaskController {
 
       // Check user permissions
       const project = await Project.findByPk(task.projectId);
-      if (req.user.role !== 'ADMIN' && 
+    if (!['ADMIN', 'PROPRIETOR'].includes(req.user.role) && 
           project.projectManagerId !== req.user.id &&
           task.assignedTo !== req.user.id) {
         return res.status(403).json({
@@ -522,7 +522,7 @@ class TaskController {
       }
 
       // Check user permissions - must be project manager or admin
-      if (req.user.role !== 'ADMIN') {
+    if (!['ADMIN', 'PROPRIETOR'].includes(req.user.role)) {
         const predecessorTask = await Task.findByPk(predecessorTaskId);
         if (!predecessorTask) {
           return res.status(404).json({
@@ -588,7 +588,7 @@ class TaskController {
 
       // Check user permissions
       const project = await Project.findByPk(dependency.predecessorTask.projectId);
-      if (req.user.role !== 'ADMIN' && 
+    if (!['ADMIN', 'PROPRIETOR'].includes(req.user.role) && 
           project.projectManagerId !== req.user.id) {
         return res.status(403).json({
           success: false,
@@ -629,7 +629,7 @@ class TaskController {
       }
 
       // Check user permissions
-      if (req.user.role !== 'ADMIN' && 
+    if (!['ADMIN', 'PROPRIETOR'].includes(req.user.role) && 
           project.projectManagerId !== req.user.id) {
         return res.status(403).json({
           success: false,

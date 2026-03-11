@@ -49,7 +49,10 @@ const authorizeRoles = (...roles) => {
       });
     }
 
-    if (!roles.includes(req.user.role)) {
+    const userRole = req.user.role;
+    const isAdminLike = userRole === 'PROPRIETOR' && roles.includes('ADMIN');
+
+    if (!roles.includes(userRole) && !isAdminLike) {
       return res.status(403).json({
         success: false,
         message: 'Insufficient permissions'
@@ -83,7 +86,7 @@ const authorizePermission = (module, action) => {
 
 // Legacy role-specific middleware — use authorize() from middleware/authorize.js instead
 const isProjectManager = (req, res, next) => {
-  if (['PROJECT_MANAGER', 'ARCHITECT', 'ADMIN'].includes(req.user.role)) {
+  if (['PROJECT_MANAGER', 'ARCHITECT', 'ADMIN', 'PROPRIETOR'].includes(req.user.role)) {
     next();
   } else {
     res.status(403).json({ success: false, message: 'Project Manager access required' });
@@ -91,7 +94,7 @@ const isProjectManager = (req, res, next) => {
 };
 
 const isAdmin = (req, res, next) => {
-  if (req.user.role === 'ADMIN') {
+  if (['ADMIN', 'PROPRIETOR'].includes(req.user.role)) {
     next();
   } else {
     res.status(403).json({ success: false, message: 'Admin access required' });

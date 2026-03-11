@@ -214,7 +214,7 @@ class CostController {
       }
 
       // Prevent updating approved/paid costs without proper authorization
-      if (['APPROVED', 'PAID'].includes(cost.status) && req.user?.role !== 'ADMIN') {
+      if (['APPROVED', 'PAID'].includes(cost.status) && !['ADMIN', 'PROPRIETOR'].includes(req.user?.role)) {
         return res.status(403).json({
           success: false,
           message: 'Cannot modify approved or paid costs without admin privileges'

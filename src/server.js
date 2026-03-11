@@ -628,16 +628,23 @@ app.use('*', (req, res) => {
 // When imported by tests via require(), no TCP socket is opened so Jest can exit cleanly.
 if (require.main === module) {
   const { sequelize } = require('./models');
-  const ensureArchitectRoleEnum = async () => {
-    // Existing Render Postgres DBs may already have enum_users_role without ARCHITECT.
-    // Add it safely so role inserts/updates work without manual SQL migration.
+  const ensureRoleEnums = async () => {
+    // Existing Render Postgres DBs may already have enum_users_role without new roles.
+    // Add values safely so role inserts/updates work without manual SQL migration.
     if (sequelize.getDialect() !== 'postgres') return;
-    try {
-      await sequelize.query(`ALTER TYPE "enum_users_role" ADD VALUE IF NOT EXISTS 'ARCHITECT';`);
-    } catch (err) {
-      // Ignore when type does not exist yet (fresh DB before first sync).
-      if (!/enum_users_role|does not exist/i.test(err.message)) {
-        throw err;
+    const queries = [
+      `ALTER TYPE "enum_users_role" ADD VALUE IF NOT EXISTS 'ARCHITECT';`,
+      `ALTER TYPE "enum_users_role" ADD VALUE IF NOT EXISTS 'PROPRIETOR';`,
+    ];
+    for (const sql of queries) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        await sequelize.query(sql);
+      } catch (err) {
+        // Ignore when type does not exist yet (fresh DB before first sync).
+        if (!/enum_users_role|does not exist/i.test(err.message)) {
+          throw err;
+        }
       }
     }
   };
@@ -648,10 +655,10 @@ if (require.main === module) {
 
   const initDb = preSeeded
     ? sequelize.authenticate()
-        .then(() => ensureArchitectRoleEnum())
+        .then(() => ensureRoleEnums())
         .then(() => console.log('✅ Database connection verified (pre-seeded)'))
     : (async () => {
-        await ensureArchitectRoleEnum();
+        await ensureRoleEnums();
         const forceSync = process.env.NODE_ENV !== 'production';
         await sequelize.sync({ force: forceSync });
         console.log('✅ Database synced');

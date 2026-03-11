@@ -218,7 +218,7 @@ class BudgetController {
       }
 
       // Prevent updating closed budgets
-      if (budget.status === 'CLOSED' && req.user?.role !== 'ADMIN') {
+      if (budget.status === 'CLOSED' && !['ADMIN', 'PROPRIETOR'].includes(req.user?.role)) {
         return res.status(403).json({
           success: false,
           message: 'Cannot modify closed budgets without admin privileges'

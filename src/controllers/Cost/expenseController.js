@@ -300,7 +300,7 @@ class ExpenseController {
       }
 
       // Only allow updates to pending expenses (unless admin)
-      if (expense.status !== 'PENDING' && req.user?.role !== 'ADMIN') {
+      if (expense.status !== 'PENDING' && !['ADMIN', 'PROPRIETOR'].includes(req.user?.role)) {
         return res.status(403).json({
           success: false,
           message: 'Can only modify pending expenses. Contact admin for changes to approved/paid expenses.'

@@ -45,7 +45,8 @@ module.exports = (sequelize, DataTypes) => {
         'ARCHITECT',           // Technical lead with PM + engineering capabilities
         'ENGINEER',            // Task updates, resource/cost data input
         'STAFF',               // Read-only + communication input
-        'ADMIN'                // System administration
+        'ADMIN',               // System administration
+        'PROPRIETOR'           // Owner-level access (admin-equivalent)
       ),
       allowNull: false,
       defaultValue: 'ENGINEER'
@@ -211,6 +212,11 @@ module.exports = (sequelize, DataTypes) => {
         systemAdministration: ['read', 'write', 'approve'],
         userManagement:       ['read', 'write', 'approve'],
       },
+      PROPRIETOR: {
+        ...TIERS.PROJECT_MANAGER,
+        systemAdministration: ['read', 'write', 'approve'],
+        userManagement:       ['read', 'write', 'approve'],
+      },
       PROJECT_MANAGER: TIERS.PROJECT_MANAGER,
       ARCHITECT:       TIERS.ARCHITECT,
       ENGINEER:        TIERS.ENGINEER,
@@ -232,15 +238,15 @@ module.exports = (sequelize, DataTypes) => {
   };
 
   User.prototype.isApprover = function() {
-    return ['PROJECT_MANAGER', 'ARCHITECT', 'ADMIN'].includes(this.role);
+    return ['PROJECT_MANAGER', 'ARCHITECT', 'ADMIN', 'PROPRIETOR'].includes(this.role);
   };
 
   User.prototype.canApproveMaterials = function() {
-    return ['ENGINEER', 'PROJECT_MANAGER', 'ARCHITECT', 'ADMIN'].includes(this.role);
+    return ['ENGINEER', 'PROJECT_MANAGER', 'ARCHITECT', 'ADMIN', 'PROPRIETOR'].includes(this.role);
   };
 
   User.prototype.canApproveFinishingMaterials = function() {
-    return ['ENGINEER', 'PROJECT_MANAGER', 'ARCHITECT', 'ADMIN'].includes(this.role);
+    return ['ENGINEER', 'PROJECT_MANAGER', 'ARCHITECT', 'ADMIN', 'PROPRIETOR'].includes(this.role);
   };
 
   return User;

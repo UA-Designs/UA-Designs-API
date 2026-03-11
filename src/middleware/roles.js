@@ -12,6 +12,7 @@
 // ── Role strings (must match User model ENUM) ──────────────────────────────
 const ROLES = {
   ADMIN:           'ADMIN',
+  PROPRIETOR:      'PROPRIETOR',
   PROJECT_MANAGER: 'PROJECT_MANAGER',
   ARCHITECT:       'ARCHITECT',
   ENGINEER:        'ENGINEER',
@@ -20,17 +21,17 @@ const ROLES = {
 
 // ── Cumulative access levels (use these on routes) ───────────────────────────
 const ACCESS_LEVELS = {
-  /** System administration actions — ADMIN only */
-  ADMIN_ONLY: [ROLES.ADMIN],
+  /** System administration actions — ADMIN + PROPRIETOR */
+  ADMIN_ONLY: [ROLES.ADMIN, ROLES.PROPRIETOR],
 
-  /** Project management decisions — ADMIN + Project Manager + Architect */
-  MANAGER_AND_ABOVE: [ROLES.ADMIN, ROLES.PROJECT_MANAGER, ROLES.ARCHITECT],
+  /** Project management decisions — ADMIN/PROPRIETOR + Project Manager + Architect */
+  MANAGER_AND_ABOVE: [ROLES.ADMIN, ROLES.PROPRIETOR, ROLES.PROJECT_MANAGER, ROLES.ARCHITECT],
 
-  /** Operational data entry — ADMIN + Project Manager + Architect + Engineer */
-  ENGINEER_AND_ABOVE: [ROLES.ADMIN, ROLES.PROJECT_MANAGER, ROLES.ARCHITECT, ROLES.ENGINEER],
+  /** Operational data entry — ADMIN/PROPRIETOR + Project Manager + Architect + Engineer */
+  ENGINEER_AND_ABOVE: [ROLES.ADMIN, ROLES.PROPRIETOR, ROLES.PROJECT_MANAGER, ROLES.ARCHITECT, ROLES.ENGINEER],
 
   /** Any authenticated user */
-  ALL_ROLES: [ROLES.ADMIN, ROLES.PROJECT_MANAGER, ROLES.ARCHITECT, ROLES.ENGINEER, ROLES.STAFF],
+  ALL_ROLES: [ROLES.ADMIN, ROLES.PROPRIETOR, ROLES.PROJECT_MANAGER, ROLES.ARCHITECT, ROLES.ENGINEER, ROLES.STAFF],
 };
 
 module.exports = { ROLES, ACCESS_LEVELS };

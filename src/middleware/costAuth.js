@@ -24,8 +24,8 @@ const checkProjectAccess = async (req, res, next) => {
       });
     }
 
-    // Admin has access to all projects
-    if (req.user?.role === 'ADMIN') {
+    // Admin / Proprietor has access to all projects
+    if (['ADMIN', 'PROPRIETOR'].includes(req.user?.role)) {
       req.project = project;
       return next();
     }
@@ -57,7 +57,7 @@ const checkProjectAccess = async (req, res, next) => {
  * Check if user can approve expenses
  */
 const canApproveExpenses = (req, res, next) => {
-  const allowedRoles = ['ADMIN', 'PROJECT_MANAGER', 'FINANCE_MANAGER'];
+  const allowedRoles = ['ADMIN', 'PROPRIETOR', 'PROJECT_MANAGER', 'FINANCE_MANAGER'];
   
   if (!req.user || !allowedRoles.includes(req.user.role)) {
     return res.status(403).json({
@@ -73,7 +73,7 @@ const canApproveExpenses = (req, res, next) => {
  * Check if user can approve budgets
  */
 const canApproveBudgets = (req, res, next) => {
-  const allowedRoles = ['ADMIN', 'FINANCE_MANAGER'];
+  const allowedRoles = ['ADMIN', 'PROPRIETOR', 'FINANCE_MANAGER'];
   
   if (!req.user || !allowedRoles.includes(req.user.role)) {
     return res.status(403).json({
@@ -89,7 +89,7 @@ const canApproveBudgets = (req, res, next) => {
  * Check if user can manage costs
  */
 const canManageCosts = (req, res, next) => {
-  const allowedRoles = ['ADMIN', 'PROJECT_MANAGER', 'FINANCE_MANAGER', 'ACCOUNTANT'];
+  const allowedRoles = ['ADMIN', 'PROPRIETOR', 'PROJECT_MANAGER', 'FINANCE_MANAGER', 'ACCOUNTANT'];
   
   if (!req.user || !allowedRoles.includes(req.user.role)) {
     return res.status(403).json({
@@ -112,7 +112,7 @@ const checkApprovalThreshold = (thresholds = { manager: 5000, director: 25000, e
 
     if (expenseAmount > thresholds.executive) {
       // Requires executive approval
-      if (req.user?.role !== 'ADMIN') {
+      if (!['ADMIN', 'PROPRIETOR'].includes(req.user?.role)) {
         return res.status(403).json({
           success: false,
           message: `Expenses over $${thresholds.executive} require executive approval`,
@@ -121,7 +121,7 @@ const checkApprovalThreshold = (thresholds = { manager: 5000, director: 25000, e
       }
     } else if (expenseAmount > thresholds.director) {
       // Requires director approval
-      const allowedRoles = ['ADMIN', 'DIRECTOR'];
+      const allowedRoles = ['ADMIN', 'PROPRIETOR', 'DIRECTOR'];
       if (!allowedRoles.includes(req.user?.role)) {
         return res.status(403).json({
           success: false,
@@ -131,7 +131,7 @@ const checkApprovalThreshold = (thresholds = { manager: 5000, director: 25000, e
       }
     } else if (expenseAmount > thresholds.manager) {
       // Requires manager approval
-      const allowedRoles = ['ADMIN', 'DIRECTOR', 'PROJECT_MANAGER', 'FINANCE_MANAGER'];
+      const allowedRoles = ['ADMIN', 'PROPRIETOR', 'DIRECTOR', 'PROJECT_MANAGER', 'FINANCE_MANAGER'];
       if (!allowedRoles.includes(req.user?.role)) {
         return res.status(403).json({
           success: false,
@@ -161,7 +161,7 @@ const checkExpenseOwnership = async (req, res, next) => {
     }
 
     // Admin can modify any expense
-    if (req.user?.role === 'ADMIN') {
+    if (['ADMIN', 'PROPRIETOR'].includes(req.user?.role)) {
       req.expense = expense;
       return next();
     }
@@ -209,7 +209,7 @@ const checkBudgetModifyPermission = async (req, res, next) => {
     }
 
     // Admin can modify any budget
-    if (req.user?.role === 'ADMIN') {
+    if (['ADMIN', 'PROPRIETOR'].includes(req.user?.role)) {
       req.budget = budget;
       return next();
     }
