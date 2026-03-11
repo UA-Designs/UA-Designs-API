@@ -57,10 +57,9 @@ router.post('/register', async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Public signup must never grant elevated system roles.
-    // If role is omitted/invalid, default to STAFF.
+    // Public signup: allow these roles; anything else (including ADMIN) defaults to STAFF.
     const requestedRole = (role || '').toUpperCase();
-    const safeRole = ['ENGINEER', 'ARCHITECT', 'STAFF'].includes(requestedRole) ? requestedRole : 'STAFF';
+    const safeRole = ['PROJECT_MANAGER', 'ARCHITECT', 'ENGINEER', 'STAFF'].includes(requestedRole) ? requestedRole : 'STAFF';
 
     // Create user
     const user = await User.create({
