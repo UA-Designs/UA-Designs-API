@@ -12,6 +12,10 @@ const PORT = process.env.PORT || 5000;
 
 const allowedOrigins = new Set([
   'https://ua-designs.vercel.app',
+  ...(process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean),
 ]);
 
 const corsOptions = {
