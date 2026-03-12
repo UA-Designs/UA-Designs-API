@@ -379,11 +379,13 @@ class ExpenseController {
         });
       }
 
-      // Prevent deleting paid expenses
-      if (expense.status === 'PAID') {
+      // Only admin/manager roles can delete paid expenses; others cannot
+      const role = req.user?.role && String(req.user.role).toUpperCase();
+      const canDeletePaid = ['ADMIN', 'PROPRIETOR', 'PROJECT_MANAGER', 'ARCHITECT'].includes(role);
+      if (expense.status === 'PAID' && !canDeletePaid) {
         return res.status(403).json({
           success: false,
-          message: 'Cannot delete paid expenses'
+          message: 'Cannot delete paid expenses. Contact project manager or admin.'
         });
       }
 
