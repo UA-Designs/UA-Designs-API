@@ -141,6 +141,9 @@ router.get('/analysis/compare', authenticateToken, CostAnalysisController.compar
 // Get cost overview for a project
 router.get('/analysis/overview/:projectId', authenticateToken, CostAnalysisController.getCostOverview);
 
+// Budget vs actual (project.budget vs sum of expenses)
+router.get('/analysis/budget-vs-actual/:projectId', authenticateToken, CostAnalysisController.getBudgetVsActual);
+
 // Get EVM metrics for a project
 router.get('/analysis/evm/:projectId', authenticateToken, CostAnalysisController.getEVMMetrics);
 

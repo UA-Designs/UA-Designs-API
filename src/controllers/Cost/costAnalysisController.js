@@ -79,6 +79,48 @@ class CostAnalysisController {
   }
 
   /**
+   * Budget vs actual (single project): uses project.budget and sum of expenses.
+   * GET /api/cost/analysis/budget-vs-actual/:projectId
+   */
+  static async getBudgetVsActual(req, res) {
+    try {
+      const { projectId } = req.params;
+      const project = await Project.findByPk(projectId);
+      if (!project) {
+        return res.status(404).json({
+          success: false,
+          message: 'Project not found'
+        });
+      }
+      const budget = parseFloat(project.budget || 0);
+      const expenses = await Expense.findAll({
+        where: { projectId },
+        attributes: ['amount', 'status']
+      });
+      const totalActualCost = expenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+      const variance = budget - totalActualCost;
+      res.json({
+        success: true,
+        data: {
+          projectId,
+          projectName: project.name,
+          budget,
+          totalActualCost,
+          variance,
+          isOverBudget: variance < 0
+        }
+      });
+    } catch (error) {
+      console.error('Get budget vs actual error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch budget vs actual',
+        error: error.message
+      });
+    }
+  }
+
+  /**
    * Get Earned Value Management (EVM) metrics for a project
    * GET /api/cost/analysis/evm/:projectId
    */

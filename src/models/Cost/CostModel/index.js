@@ -32,6 +32,21 @@ module.exports = (sequelize, DataTypes) => {
     status: {
       type: DataTypes.ENUM('PENDING', 'APPROVED', 'REJECTED', 'PAID'),
       defaultValue: 'PENDING'
+    },
+    projectId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: { model: 'projects', key: 'id' }
+    },
+    taskId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: { model: 'tasks', key: 'id' }
+    },
+    budgetId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: { model: 'budgets', key: 'id' }
     }
   }, {
     tableName: 'costs',
