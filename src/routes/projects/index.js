@@ -456,7 +456,7 @@ router.patch('/:id/assign-manager', authenticateToken, authorize('ADMIN_ONLY'), 
 });
 
 // Delete project (soft delete)
-router.delete('/:id', authenticateToken, authorize('ADMIN_ONLY'), async (req, res) => {
+router.delete('/:id', authenticateToken, authorize('MANAGER_AND_ABOVE'), async (req, res) => {
   try {
     const { id } = req.params;
 
