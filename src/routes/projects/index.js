@@ -60,6 +60,31 @@ router.get('/', authenticateToken, async (req, res) => {
       offset: parseInt(offset)
     });
 
+    // Attach actualCost per project (sum of all expenses for that project)
+    const projectIds = projects.map(p => p.id);
+    let spentByProject = {};
+    if (projectIds.length > 0) {
+      const expenseSums = await Expense.findAll({
+        attributes: [
+          'projectId',
+          [Project.sequelize.fn('SUM', Project.sequelize.col('amount')), 'totalSpent']
+        ],
+        where: { projectId: { [Op.in]: projectIds } },
+        group: ['projectId'],
+        raw: true
+      });
+
+      spentByProject = expenseSums.reduce((acc, row) => {
+        acc[row.projectId] = parseFloat(row.totalSpent || 0);
+        return acc;
+      }, {});
+
+      projects.forEach(project => {
+        const actualCost = spentByProject[project.id] || 0;
+        project.setDataValue('actualCost', actualCost);
+      });
+    }
+
     res.json({
       success: true,
       data: {
@@ -562,13 +587,24 @@ router.get('/stats/overview', authenticateToken, async (req, res) => {
       }
     });
 
-    // Total budget
+    // Total budget and spend across all projects
     const budgetStats = await Project.findAll({
       attributes: [
         [Project.sequelize.fn('SUM', Project.sequelize.col('budget')), 'totalBudget']
       ],
       raw: true
     });
+
+    const expenseStats = await Expense.findAll({
+      attributes: [
+        [Expense.sequelize.fn('SUM', Expense.sequelize.col('amount')), 'totalSpent']
+      ],
+      raw: true
+    });
+
+    const totalBudget = parseFloat(budgetStats[0]?.totalBudget || 0);
+    const spentBudget = parseFloat(expenseStats[0]?.totalSpent || 0);
+    const remainingBudget = totalBudget - spentBudget;
 
     res.json({
       success: true,
@@ -587,7 +623,9 @@ router.get('/stats/overview', authenticateToken, async (req, res) => {
           return acc;
         }, {}),
         budgetStats: {
-          totalBudget: parseFloat(budgetStats[0]?.totalBudget || 0)
+          totalBudget,
+          spentBudget,
+          remainingBudget
         }
       }
     });
