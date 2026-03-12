@@ -44,7 +44,9 @@ const authorize = (levelOrRoles) => {
       });
     }
 
-    if (!allowed.includes(req.user.role)) {
+    const userRole = req.user.role && String(req.user.role).toUpperCase();
+    const allowedUpper = allowed.map((r) => String(r).toUpperCase());
+    if (!userRole || !allowedUpper.includes(userRole)) {
       return res.status(403).json({
         success: false,
         message: 'Insufficient permissions for this action',
@@ -94,7 +96,9 @@ const authorizeOwnerOr = (levelOrRoles, ownerFn) => {
       // Ownership lookup failed — fall through to role check
     }
 
-    if (allowed.includes(req.user.role)) {
+    const userRole = req.user.role && String(req.user.role).toUpperCase();
+    const allowedUpper = allowed.map((r) => String(r).toUpperCase());
+    if (userRole && allowedUpper.includes(userRole)) {
       return next();
     }
 

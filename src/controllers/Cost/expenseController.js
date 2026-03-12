@@ -324,7 +324,8 @@ class ExpenseController {
       }
 
       // Only allow updates to non-pending expenses for admin/manager roles
-      const canEditAnyStatus = ['ADMIN', 'PROPRIETOR', 'PROJECT_MANAGER', 'ARCHITECT'].includes(req.user?.role);
+      const role = req.user?.role && String(req.user.role).toUpperCase();
+      const canEditAnyStatus = ['ADMIN', 'PROPRIETOR', 'PROJECT_MANAGER', 'ARCHITECT'].includes(role);
       if (expense.status !== 'PENDING' && !canEditAnyStatus) {
         return res.status(403).json({
           success: false,
