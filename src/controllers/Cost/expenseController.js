@@ -323,11 +323,12 @@ class ExpenseController {
         });
       }
 
-      // Only allow updates to pending expenses (unless admin)
-      if (expense.status !== 'PENDING' && !['ADMIN', 'PROPRIETOR'].includes(req.user?.role)) {
+      // Only allow updates to non-pending expenses for admin/manager roles
+      const canEditAnyStatus = ['ADMIN', 'PROPRIETOR', 'PROJECT_MANAGER', 'ARCHITECT'].includes(req.user?.role);
+      if (expense.status !== 'PENDING' && !canEditAnyStatus) {
         return res.status(403).json({
           success: false,
-          message: 'Can only modify pending expenses. Contact admin for changes to approved/paid expenses.'
+          message: 'Can only modify pending expenses. Contact project manager or admin for changes to approved/paid expenses.'
         });
       }
 
