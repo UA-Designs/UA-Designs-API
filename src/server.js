@@ -14,6 +14,9 @@ const allowedOrigins = new Set([
   'https://ua-designs.vercel.app',
   'https://ua-designs.com',
   'https://www.ua-designs.com',
+  ...(process.env.NODE_ENV !== 'production'
+    ? ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173']
+    : []),
   ...(process.env.CORS_ORIGIN || '')
     .split(',')
     .map((o) => o.trim())
@@ -220,6 +223,22 @@ app.get('/api/public/tasks', authenticateToken, async (req, res) => {
       error: error.message
     });
   }
+});
+
+// CORS and other errors: return 403 with clear message (avoids generic 400)
+app.use((err, req, res, next) => {
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({
+      success: false,
+      message: 'CORS not allowed',
+      hint: 'Request origin is not in the API allowlist. Add it via CORS_ORIGIN env or use an allowed domain.'
+    });
+  }
+  console.error('Unhandled error:', err);
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || 'Internal server error'
+  });
 });
 
 // Serve static files and web interface
