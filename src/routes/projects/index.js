@@ -1,5 +1,5 @@
 const express = require('express');
-const { Project, User, Task, Budget, Risk, Stakeholder, Material, Labor, Equipment } = require('../../models');
+const { Project, User, Task, Budget, Risk, Stakeholder, Material, Labor, Equipment, Expense } = require('../../models');
 const { authenticateToken } = require('../../middleware/auth');
 const { authorize, authorizeOwnerOr } = require('../../middleware/authorize');
 const { Op } = require('sequelize');
@@ -78,6 +78,44 @@ router.get('/', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch projects',
+      error: error.message
+    });
+  }
+});
+
+// Budget overview for project detail: project.budget vs actual (sum of logged expenses)
+router.get('/:id/budget-overview', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const project = await Project.findByPk(id, { attributes: ['id', 'name', 'budget'] });
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found' });
+    }
+    const budget = parseFloat(project.budget || 0);
+    const expenses = await Expense.findAll({
+      where: { projectId: id },
+      attributes: ['amount', 'status']
+    });
+    // Actual cost = sum of all expenses logged on the Expenses page for this project
+    const totalActualCost = expenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+    const variance = budget - totalActualCost;
+    res.json({
+      success: true,
+      data: {
+        projectId: id,
+        projectName: project.name,
+        budget,
+        totalActualCost,
+        variance,
+        isOverBudget: variance < 0,
+        expenseCount: expenses.length
+      }
+    });
+  } catch (error) {
+    console.error('Get budget overview error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch budget overview',
       error: error.message
     });
   }

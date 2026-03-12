@@ -79,7 +79,8 @@ class CostAnalysisController {
   }
 
   /**
-   * Budget vs actual (single project): uses project.budget and sum of expenses.
+   * Budget vs actual (single project): project.budget vs sum of logged expenses.
+   * Actual cost = every expense logged on the Expenses page for this project.
    * GET /api/cost/analysis/budget-vs-actual/:projectId
    */
   static async getBudgetVsActual(req, res) {
@@ -97,8 +98,13 @@ class CostAnalysisController {
         where: { projectId },
         attributes: ['amount', 'status']
       });
+      // Actual cost = sum of all expenses logged on the Expenses page (this project)
       const totalActualCost = expenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
       const variance = budget - totalActualCost;
+      const byStatus = { PENDING: 0, APPROVED: 0, REJECTED: 0, PAID: 0 };
+      expenses.forEach(e => {
+        if (byStatus[e.status] !== undefined) byStatus[e.status] += parseFloat(e.amount || 0);
+      });
       res.json({
         success: true,
         data: {
@@ -107,7 +113,9 @@ class CostAnalysisController {
           budget,
           totalActualCost,
           variance,
-          isOverBudget: variance < 0
+          isOverBudget: variance < 0,
+          expenseCount: expenses.length,
+          actualCostByStatus: byStatus
         }
       });
     } catch (error) {

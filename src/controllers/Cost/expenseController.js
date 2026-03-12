@@ -1,4 +1,4 @@
-const { Expense, Budget, Project, Task, User, CostCategory } = require('../../models');
+const { Expense, Budget, Project, Task, User, CostCategory, Cost } = require('../../models');
 const { Op } = require('sequelize');
 const path = require('path');
 const fs = require('fs');
@@ -94,6 +94,30 @@ class ExpenseController {
         tags,
         status: 'PENDING',
         submittedBy: req.user?.id
+      });
+
+      // Reflect logged expense in BOQ (Cost): create a cost line so it appears in BOQ
+      const costTypeMap = {
+        MATERIAL: 'MATERIAL',
+        LABOR: 'LABOR',
+        EQUIPMENT: 'EQUIPMENT',
+        OVERHEAD: 'OVERHEAD',
+        SUBCONTRACTOR: 'OTHER',
+        PERMITS: 'OTHER',
+        OTHER: 'OTHER'
+      };
+      const costType = costTypeMap[category] || 'OTHER';
+      await Cost.create({
+        name,
+        type: costType,
+        amount: parseFloat(amount),
+        currency,
+        date: new Date(date),
+        description: description || `Logged expense (${category})`,
+        projectId,
+        taskId: taskId || null,
+        budgetId: budgetId || null,
+        status: 'APPROVED'
       });
 
       res.status(201).json({
