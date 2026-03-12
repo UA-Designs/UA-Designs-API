@@ -3,6 +3,7 @@ const router = express.Router();
 const { authenticateToken } = require('../../middleware/auth');
 const { authorize } = require('../../middleware/authorize');
 const upload = require('../../middleware/upload');
+const { validateCost } = require('../../middleware/costValidation');
 const {
   CostController,
   BudgetController,
@@ -31,8 +32,8 @@ router.get('/health', (req, res) => {
 // Get cost summary (must be before /:id route)
 router.get('/costs/summary', authenticateToken, CostController.getCostSummary);
 
-// Create a new cost
-router.post('/costs', authenticateToken, authorize('ENGINEER_AND_ABOVE'), CostController.createCost);
+// Create a new cost (type: MATERIAL | LABOR | EQUIPMENT | OVERHEAD | OTHER | FUEL | FORMWORKS)
+router.post('/costs', authenticateToken, authorize('ENGINEER_AND_ABOVE'), validateCost, CostController.createCost);
 
 // Get all costs with filtering
 router.get('/costs', authenticateToken, CostController.getAllCosts);

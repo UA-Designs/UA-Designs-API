@@ -673,6 +673,22 @@ if (require.main === module) {
     }
   };
 
+  // Add FUEL and FORMWORKS to BOQ/cost type enum (Postgres).
+  const ensureCostTypeEnum = async () => {
+    if (sequelize.getDialect() !== 'postgres') return;
+    const enumName = 'enum_costs_type';
+    for (const value of ['FUEL', 'FORMWORKS']) {
+      try {
+        await sequelize.query(`ALTER TYPE ${enumName} ADD VALUE IF NOT EXISTS '${value}';`);
+      } catch (err) {
+        if (!/does not exist|type .* does not exist/i.test(err.message)) {
+          console.warn(`⚠️  ${enumName} ADD VALUE ${value} (non-fatal):`, err.message);
+        }
+      }
+    }
+    console.log('✅ Cost type enum (FUEL, FORMWORKS) ensured');
+  };
+
   // Make materials.projectId (or project_id) nullable so materials can be global (no project).
   const ensureMaterialsProjectIdNullable = async () => {
     if (sequelize.getDialect() !== 'postgres') return;
@@ -701,6 +717,7 @@ if (require.main === module) {
     ? sequelize.authenticate()
         .then(() => ensureRoleEnums())
         .then(() => ensureMaterialsProjectIdNullable())
+        .then(() => ensureCostTypeEnum())
         .then(() => console.log('✅ Database connection verified (pre-seeded)'))
     : (async () => {
         await ensureRoleEnums();
@@ -708,6 +725,7 @@ if (require.main === module) {
         await sequelize.sync({ force: forceSync });
         console.log('✅ Database synced');
         await ensureMaterialsProjectIdNullable();
+        await ensureCostTypeEnum();
 
         const autoSeed = process.env.AUTO_SEED !== 'false' && process.env.NODE_ENV !== 'production';
         if (autoSeed) {

@@ -18,9 +18,12 @@ const validateCost = (req, res, next) => {
   if (!type) {
     errors.push({ field: 'type', message: 'Type is required' });
   } else {
-    const validTypes = ['MATERIAL', 'LABOR', 'EQUIPMENT', 'OVERHEAD', 'OTHER'];
-    if (!validTypes.includes(type.toUpperCase())) {
+    const validTypes = ['MATERIAL', 'LABOR', 'EQUIPMENT', 'OVERHEAD', 'OTHER', 'FUEL', 'FORMWORKS'];
+    const typeUpper = type.toUpperCase();
+    if (!validTypes.includes(typeUpper)) {
       errors.push({ field: 'type', message: `Type must be one of: ${validTypes.join(', ')}` });
+    } else {
+      req.body.type = typeUpper;
     }
   }
 
