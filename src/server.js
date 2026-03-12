@@ -23,33 +23,38 @@ const allowedOrigins = new Set([
     .filter(Boolean),
 ]);
 
+// Reject disallowed origins with 403 before CORS (avoids cors pkg ever sending 400)
+function isOriginAllowed(origin) {
+  if (!origin) return true;
+  const normalized = origin.replace(/\/$/, '');
+  if (allowedOrigins.has(normalized)) return true;
+  if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(normalized)) return true;
+  return false;
+}
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && !isOriginAllowed(origin)) {
+    return res.status(403).json({
+      success: false,
+      message: 'CORS not allowed',
+      hint: 'Add your frontend origin to CORS_ORIGIN on Render (e.g. https://ua-designs.vercel.app)',
+    });
+  }
+  next();
+});
+
 const corsOptions = {
   origin: (origin, callback) => {
-    // Allow non-browser requests (Render health checks, curl, Postman)
-    if (!origin) {
+    if (!origin || isOriginAllowed(origin)) {
       callback(null, true);
-      return;
+    } else {
+      callback(null, false); // no Error — we already rejected above
     }
-
-    const normalized = origin.replace(/\/$/, '');
-
-    // Allow exact production/custom domains
-    if (allowedOrigins.has(normalized)) {
-      callback(null, true);
-      return;
-    }
-
-    // Optional: allow Vercel preview deployments
-    if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(normalized)) {
-      callback(null, true);
-      return;
-    }
-
-    callback(new Error('Not allowed by CORS'));
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: false, // Set true only if using cookie auth.
+  credentials: false,
 };
 
 // Security middleware
