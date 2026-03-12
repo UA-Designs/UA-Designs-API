@@ -7,7 +7,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     projectId: {
       type: DataTypes.UUID,
-      allowNull: false
+      allowNull: true
     },
     name: {
       type: DataTypes.STRING,

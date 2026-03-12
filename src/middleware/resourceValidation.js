@@ -28,23 +28,35 @@ const MAINTENANCE_STATUSES = ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLE
 
 // --- Material validators ---
 
+// Normalize body so frontend can send either camelCase or snake_case
+const normalizeMaterialCreateBody = (req, res, next) => {
+  const b = req.body || {};
+  if (!b.projectId && b.project_id) b.projectId = b.project_id;
+  if (b.unitCost === undefined && b.unit_cost !== undefined) b.unitCost = b.unit_cost;
+  if (b.deliveryDate === undefined && b.delivery_date !== undefined) b.deliveryDate = b.delivery_date;
+  if (typeof b.unitCost === 'string') b.unitCost = parseFloat(String(b.unitCost).replace(/,/g, ''));
+  if (typeof b.quantity === 'string') b.quantity = parseFloat(String(b.quantity).replace(/,/g, ''));
+  next();
+};
+
 const validateCreateMaterial = [
+  normalizeMaterialCreateBody,
   body('name')
     .trim()
     .notEmpty().withMessage('Name is required')
     .isLength({ max: 255 }).withMessage('Name must not exceed 255 characters'),
   body('projectId')
-    .notEmpty().withMessage('Project ID is required')
+    .optional({ nullable: true })
     .isUUID().withMessage('Project ID must be a valid UUID'),
   body('unit')
     .trim()
     .notEmpty().withMessage('Unit is required'),
   body('unitCost')
     .notEmpty().withMessage('Unit cost is required')
-    .isFloat({ min: 0 }).withMessage('Unit cost must be a non-negative number'),
+    .custom((v) => !isNaN(Number(v)) && Number(v) >= 0).withMessage('Unit cost must be a non-negative number'),
   body('quantity')
     .notEmpty().withMessage('Quantity is required')
-    .isFloat({ min: 0 }).withMessage('Quantity must be a non-negative number'),
+    .custom((v) => !isNaN(Number(v)) && Number(v) >= 0).withMessage('Quantity must be a non-negative number'),
   body('status')
     .optional()
     .isIn(MATERIAL_STATUSES).withMessage(`Status must be one of: ${MATERIAL_STATUSES.join(', ')}`),
