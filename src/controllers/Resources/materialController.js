@@ -67,6 +67,14 @@ class MaterialController {
       });
     } catch (error) {
       console.error('MaterialController.create error:', error);
+      const name = error.name || '';
+      const msg = (error.message || '').toLowerCase();
+      if (name === 'SequelizeDatabaseError' && (msg.includes('null value') || msg.includes('not-null') || msg.includes('violates not-null'))) {
+        return res.status(503).json({
+          success: false,
+          message: 'Materials table needs a one-time update to allow optional project. Redeploy the API or run: ALTER TABLE materials ALTER COLUMN "projectId" DROP NOT NULL;',
+        });
+      }
       res.status(500).json({
         success: false,
         message: 'Failed to create material',

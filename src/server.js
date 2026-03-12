@@ -673,6 +673,26 @@ if (require.main === module) {
     }
   };
 
+  // Make materials.projectId (or project_id) nullable so materials can be global (no project).
+  const ensureMaterialsProjectIdNullable = async () => {
+    if (sequelize.getDialect() !== 'postgres') return;
+    const tryColumn = async (col) => {
+      await sequelize.query(`ALTER TABLE materials ALTER COLUMN ${col} DROP NOT NULL;`);
+    };
+    const columns = ['"projectId"', 'projectid', '"project_id"', 'project_id'];
+    for (const col of columns) {
+      try {
+        tryColumn(col);
+        console.log('✅ materials projectId/project_id is nullable');
+        return;
+      } catch (err) {
+        if (!/does not exist|column .* does not exist/i.test(err.message)) {
+          console.warn('⚠️  materials projectId nullable (non-fatal):', err.message);
+        }
+      }
+    }
+  };
+
   // When SEEDED=true the DB was already set up by a seed script
   // (e.g. dev:clean or dev:demo), so skip force-sync and auto-seed.
   const preSeeded = process.env.SEEDED === 'true';
@@ -680,12 +700,14 @@ if (require.main === module) {
   const initDb = preSeeded
     ? sequelize.authenticate()
         .then(() => ensureRoleEnums())
+        .then(() => ensureMaterialsProjectIdNullable())
         .then(() => console.log('✅ Database connection verified (pre-seeded)'))
     : (async () => {
         await ensureRoleEnums();
         const forceSync = process.env.NODE_ENV !== 'production';
         await sequelize.sync({ force: forceSync });
         console.log('✅ Database synced');
+        await ensureMaterialsProjectIdNullable();
 
         const autoSeed = process.env.AUTO_SEED !== 'false' && process.env.NODE_ENV !== 'production';
         if (autoSeed) {
