@@ -26,7 +26,8 @@ class CostController {
         unitCost,
         unit,
         actualQty,
-        actualAmount
+        actualAmount,
+        amountReceived
       } = req.body;
 
       // Validate required fields
@@ -68,10 +69,13 @@ class CostController {
         : null;
       const parsedActualQty = actualQty !== undefined && actualQty !== null
         ? parseFloat(actualQty)
-        : null;
+        : 0;
       const parsedActualAmount = actualAmount !== undefined && actualAmount !== null
         ? parseFloat(actualAmount)
-        : null;
+        : 0;
+      const parsedAmountReceived = amountReceived !== undefined && amountReceived !== null
+        ? parseFloat(amountReceived)
+        : 0;
 
       const finalAmount = amount !== undefined && amount !== null
         ? parseFloat(amount)
@@ -100,6 +104,7 @@ class CostController {
         projectId,
         actualQty: parsedActualQty,
         actualAmount: parsedActualAmount,
+        amountReceived: parsedAmountReceived,
         status: 'PENDING'
       });
 
@@ -178,25 +183,26 @@ class CostController {
         offset: parseInt(offset)
       });
 
-      // Compute varianceStatus for each cost based on estimated vs actual
+      // Compute varianceStatus for each cost based on remaining percentage
       const enrichedCosts = costs.map(cost => {
         const plain = cost.toJSON();
         const amount = plain.amount !== null && plain.amount !== undefined ? parseFloat(plain.amount) : null;
-        const actualAmount = plain.actualAmount !== null && plain.actualAmount !== undefined
-          ? parseFloat(plain.actualAmount)
+        const amountReceived = plain.amountReceived !== null && plain.amountReceived !== undefined
+          ? parseFloat(plain.amountReceived)
           : null;
 
         let varianceStatus = null;
 
-        if (amount !== null && actualAmount !== null) {
-          const ratio = amount > 0 ? actualAmount / amount : null;
+        if (amount !== null && amountReceived !== null && amount > 0) {
+          const remaining = Math.max(0, amount - amountReceived);
+          const remainingPct = (remaining / amount) * 100;
 
-          if (ratio !== null) {
-            if (ratio <= 1.1) {
-              varianceStatus = 'OK';
-            } else {
-              varianceStatus = 'CRITICAL';
-            }
+          if (remainingPct <= 10) {
+            varianceStatus = 'CRITICAL';
+          } else if (remainingPct < 20) {
+            varianceStatus = 'LOW';
+          } else {
+            varianceStatus = 'OK';
           }
         }
 
@@ -251,21 +257,22 @@ class CostController {
         data: (() => {
           const plain = cost.toJSON();
           const amount = plain.amount !== null && plain.amount !== undefined ? parseFloat(plain.amount) : null;
-          const actualAmount = plain.actualAmount !== null && plain.actualAmount !== undefined
-            ? parseFloat(plain.actualAmount)
+          const amountReceived = plain.amountReceived !== null && plain.amountReceived !== undefined
+            ? parseFloat(plain.amountReceived)
             : null;
 
           let varianceStatus = null;
 
-          if (amount !== null && actualAmount !== null) {
-            const ratio = amount > 0 ? actualAmount / amount : null;
+          if (amount !== null && amountReceived !== null && amount > 0) {
+            const remaining = Math.max(0, amount - amountReceived);
+            const remainingPct = (remaining / amount) * 100;
 
-            if (ratio !== null) {
-              if (ratio <= 1.1) {
-                varianceStatus = 'OK';
-              } else {
-                varianceStatus = 'CRITICAL';
-              }
+            if (remainingPct <= 10) {
+              varianceStatus = 'CRITICAL';
+            } else if (remainingPct < 20) {
+              varianceStatus = 'LOW';
+            } else {
+              varianceStatus = 'OK';
             }
           }
 

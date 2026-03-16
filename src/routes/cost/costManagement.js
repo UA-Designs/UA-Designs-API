@@ -8,7 +8,8 @@ const {
   CostController,
   BudgetController,
   ExpenseController,
-  CostAnalysisController
+  CostAnalysisController,
+  SiteUsageController
 } = require('../../controllers/Cost');
 
 // Health check
@@ -156,5 +157,12 @@ router.get('/analysis/trend/:projectId', authenticateToken, CostAnalysisControll
 
 // Get cost forecast
 router.get('/analysis/forecast/:projectId', authenticateToken, CostAnalysisController.getCostForecast);
+
+// ==========================================
+// SITE USAGE ROUTES
+// ==========================================
+
+router.post('/site-usage', authenticateToken, authorize('ENGINEER_AND_ABOVE'), SiteUsageController.createSiteUsage);
+router.get('/site-usage', authenticateToken, SiteUsageController.getSiteUsage);
 
 module.exports = router; 

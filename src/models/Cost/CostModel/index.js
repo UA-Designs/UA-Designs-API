@@ -16,7 +16,7 @@ module.exports = (sequelize, DataTypes) => {
     estimatedQty: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: true,
-      defaultValue: 1
+      defaultValue: 0
     },
     unitCost: {
       type: DataTypes.DECIMAL(10, 2),
@@ -32,11 +32,18 @@ module.exports = (sequelize, DataTypes) => {
     },
     actualQty: {
       type: DataTypes.DECIMAL(10, 2),
-      allowNull: true
+      allowNull: true,
+      defaultValue: 0
     },
     actualAmount: {
       type: DataTypes.DECIMAL(10, 2),
-      allowNull: true
+      allowNull: true,
+      defaultValue: 0
+    },
+    amountReceived: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+      defaultValue: 0
     },
     currency: {
       type: DataTypes.STRING,

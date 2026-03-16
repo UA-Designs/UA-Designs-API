@@ -31,7 +31,7 @@ const Project = require('./Project/index')(sequelize, Sequelize);
 const { Task, TaskDependency } = require('./Schedule');
 
 // Cost Management
-const { CostModel: Cost, Budget, Expense, CostCategory } = require('./Cost');
+const { CostModel: Cost, Budget, Expense, CostCategory, SiteUsage } = require('./Cost');
 
 // Resource Management
 const { Material, Labor, Equipment, TeamMember, SkillsMatrix, ResourceAllocation, EquipmentMaintenance } = require('./Resources');
@@ -70,6 +70,8 @@ const CommunicationModel = Communication(sequelize, Sequelize);
 const StakeholderEngagementModel = StakeholderEngagement(sequelize, Sequelize);
 const AuditLogModel = AuditLogDef(sequelize, Sequelize);
 
+const SiteUsageModel = SiteUsage(sequelize, Sequelize);
+
 // Define associations for core knowledge areas
 
 // Project associations
@@ -84,6 +86,9 @@ ExpenseModel.belongsTo(ProjectModel, { as: 'project', foreignKey: 'projectId' })
 
 ProjectModel.hasMany(CostModel, { as: 'costs', foreignKey: 'projectId' });
 CostModel.belongsTo(ProjectModel, { as: 'project', foreignKey: 'projectId' });
+
+ProjectModel.hasMany(SiteUsageModel, { as: 'siteUsage', foreignKey: 'projectId' });
+SiteUsageModel.belongsTo(ProjectModel, { as: 'project', foreignKey: 'projectId' });
 
 ProjectModel.hasMany(RiskModel, { as: 'risks', foreignKey: 'projectId' });
 RiskModel.belongsTo(ProjectModel, { foreignKey: 'projectId' });
@@ -137,6 +142,9 @@ CostModel.belongsTo(TaskModel, { foreignKey: 'taskId' });
 
 TaskModel.hasMany(ExpenseModel, { as: 'taskExpenses', foreignKey: 'taskId' });
 ExpenseModel.belongsTo(TaskModel, { as: 'task', foreignKey: 'taskId' });
+
+CostModel.hasMany(SiteUsageModel, { as: 'siteUsage', foreignKey: 'costId' });
+SiteUsageModel.belongsTo(CostModel, { as: 'cost', foreignKey: 'costId' });
 
 // 3. Resource Management - Team Members
 ProjectModel.hasMany(TeamMemberModel, { as: 'teamMembers', foreignKey: 'projectId' });
@@ -242,5 +250,6 @@ module.exports = {
   SkillsMatrix: SkillsMatrixModel,
   ResourceAllocation: ResourceAllocationModel,
   EquipmentMaintenance: EquipmentMaintenanceModel,
-  AuditLog: AuditLogModel
+  AuditLog: AuditLogModel,
+  SiteUsage: SiteUsageModel
 }; 
