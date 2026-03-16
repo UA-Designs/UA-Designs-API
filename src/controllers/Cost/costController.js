@@ -21,14 +21,20 @@ class CostController {
         date,
         description,
         taskId,
-        projectId
+        projectId,
+        estimatedQty,
+        unitCost,
+        unit,
+        actualQty,
+        actualAmount
       } = req.body;
 
       // Validate required fields
-      if (!name || !type || !amount || !date) {
+      // Require either a direct amount or both estimatedQty and unitCost
+      if (!name || !type || (!amount && !(estimatedQty && unitCost)) || !date) {
         return res.status(400).json({
           success: false,
-          message: 'Missing required fields: name, type, amount, and date are required'
+          message: 'Missing required fields: name, type, date, and either amount or (estimatedQty and unitCost) are required'
         });
       }
 
@@ -54,15 +60,46 @@ class CostController {
         }
       }
 
+      const parsedEstimatedQty = estimatedQty !== undefined && estimatedQty !== null
+        ? parseFloat(estimatedQty)
+        : null;
+      const parsedUnitCost = unitCost !== undefined && unitCost !== null
+        ? parseFloat(unitCost)
+        : null;
+      const parsedActualQty = actualQty !== undefined && actualQty !== null
+        ? parseFloat(actualQty)
+        : null;
+      const parsedActualAmount = actualAmount !== undefined && actualAmount !== null
+        ? parseFloat(actualAmount)
+        : null;
+
+      const finalAmount = amount !== undefined && amount !== null
+        ? parseFloat(amount)
+        : (parsedEstimatedQty !== null && parsedUnitCost !== null
+          ? parsedEstimatedQty * parsedUnitCost
+          : null);
+
+      if (finalAmount === null) {
+        return res.status(400).json({
+          success: false,
+          message: 'Unable to determine amount. Provide amount or both estimatedQty and unitCost.'
+        });
+      }
+
       const cost = await Cost.create({
         name,
         type,
-        amount: parseFloat(amount),
+        estimatedQty: parsedEstimatedQty,
+        unitCost: parsedUnitCost,
+        amount: finalAmount,
+        unit: unit || null,
         currency,
         date: new Date(date),
         description,
         taskId,
         projectId,
+        actualQty: parsedActualQty,
+        actualAmount: parsedActualAmount,
         status: 'PENDING'
       });
 
@@ -141,10 +178,38 @@ class CostController {
         offset: parseInt(offset)
       });
 
+      // Compute varianceStatus for each cost based on estimated vs actual
+      const enrichedCosts = costs.map(cost => {
+        const plain = cost.toJSON();
+        const amount = plain.amount !== null && plain.amount !== undefined ? parseFloat(plain.amount) : null;
+        const actualAmount = plain.actualAmount !== null && plain.actualAmount !== undefined
+          ? parseFloat(plain.actualAmount)
+          : null;
+
+        let varianceStatus = null;
+
+        if (amount !== null && actualAmount !== null) {
+          const ratio = amount > 0 ? actualAmount / amount : null;
+
+          if (ratio !== null) {
+            if (ratio <= 1.1) {
+              varianceStatus = 'OK';
+            } else {
+              varianceStatus = 'CRITICAL';
+            }
+          }
+        }
+
+        return {
+          ...plain,
+          varianceStatus
+        };
+      });
+
       res.json({
         success: true,
         data: {
-          costs,
+          costs: enrichedCosts,
           pagination: {
             currentPage: parseInt(page),
             totalPages: Math.ceil(count / limit),
@@ -183,7 +248,32 @@ class CostController {
 
       res.json({
         success: true,
-        data: cost
+        data: (() => {
+          const plain = cost.toJSON();
+          const amount = plain.amount !== null && plain.amount !== undefined ? parseFloat(plain.amount) : null;
+          const actualAmount = plain.actualAmount !== null && plain.actualAmount !== undefined
+            ? parseFloat(plain.actualAmount)
+            : null;
+
+          let varianceStatus = null;
+
+          if (amount !== null && actualAmount !== null) {
+            const ratio = amount > 0 ? actualAmount / amount : null;
+
+            if (ratio !== null) {
+              if (ratio <= 1.1) {
+                varianceStatus = 'OK';
+              } else {
+                varianceStatus = 'CRITICAL';
+              }
+            }
+          }
+
+          return {
+            ...plain,
+            varianceStatus
+          };
+        })()
       });
     } catch (error) {
       console.error('Get cost by ID error:', error);
@@ -227,8 +317,37 @@ class CostController {
       delete updateData.updatedAt;
 
       // Convert numeric fields
-      if (updateData.amount) updateData.amount = parseFloat(updateData.amount);
+      if (updateData.amount !== undefined && updateData.amount !== null) {
+        updateData.amount = parseFloat(updateData.amount);
+      }
+      if (updateData.estimatedQty !== undefined && updateData.estimatedQty !== null) {
+        updateData.estimatedQty = parseFloat(updateData.estimatedQty);
+      }
+      if (updateData.unitCost !== undefined && updateData.unitCost !== null) {
+        updateData.unitCost = parseFloat(updateData.unitCost);
+      }
+      if (updateData.actualQty !== undefined && updateData.actualQty !== null) {
+        updateData.actualQty = parseFloat(updateData.actualQty);
+      }
+      if (updateData.actualAmount !== undefined && updateData.actualAmount !== null) {
+        updateData.actualAmount = parseFloat(updateData.actualAmount);
+      }
       if (updateData.date) updateData.date = new Date(updateData.date);
+
+      // If estimatedQty or unitCost changed and amount not explicitly provided, recompute amount
+      const willUpdateEstimated = Object.prototype.hasOwnProperty.call(updateData, 'estimatedQty');
+      const willUpdateUnitCost = Object.prototype.hasOwnProperty.call(updateData, 'unitCost');
+      const amountProvided = Object.prototype.hasOwnProperty.call(updateData, 'amount');
+
+      if (!amountProvided && (willUpdateEstimated || willUpdateUnitCost)) {
+        const newEstimated = willUpdateEstimated ? updateData.estimatedQty : cost.estimatedQty;
+        const newUnitCost = willUpdateUnitCost ? updateData.unitCost : cost.unitCost;
+
+        if (newEstimated !== null && newEstimated !== undefined &&
+            newUnitCost !== null && newUnitCost !== undefined) {
+          updateData.amount = parseFloat(newEstimated) * parseFloat(newUnitCost);
+        }
+      }
 
       await cost.update(updateData);
 

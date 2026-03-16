@@ -13,9 +13,30 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.ENUM('MATERIAL', 'LABOR', 'EQUIPMENT', 'OVERHEAD', 'OTHER', 'FUEL', 'FORMWORKS'),
       allowNull: false
     },
+    estimatedQty: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+      defaultValue: 1
+    },
+    unitCost: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true
+    },
     amount: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: false
+    },
+    unit: {
+      type: DataTypes.STRING,
+      allowNull: true
+    },
+    actualQty: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true
+    },
+    actualAmount: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true
     },
     currency: {
       type: DataTypes.STRING,
