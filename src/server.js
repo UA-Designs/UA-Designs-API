@@ -689,6 +689,48 @@ if (require.main === module) {
     console.log('✅ Cost type enum (FUEL, FORMWORKS) ensured');
   };
 
+  // Add BOQ columns to costs and create site_usage table (Postgres). Safe to run on every startup.
+  const ensureCostsAndSiteUsageMigration = async () => {
+    if (sequelize.getDialect() !== 'postgres') return;
+    const costColumns = [
+      ['"estimatedQty"', 'NUMERIC(10,2) DEFAULT 0'],
+      ['"unitCost"', 'NUMERIC(10,2)'],
+      ['"unit"', 'VARCHAR(255)'],
+      ['"actualQty"', 'NUMERIC(10,2) DEFAULT 0'],
+      ['"actualAmount"', 'NUMERIC(10,2) DEFAULT 0'],
+      ['"amountReceived"', 'NUMERIC(10,2) DEFAULT 0']
+    ];
+    for (const [col, type] of costColumns) {
+      try {
+        await sequelize.query(`ALTER TABLE costs ADD COLUMN IF NOT EXISTS ${col} ${type};`);
+      } catch (err) {
+        if (!/already exists|does not exist/i.test(err.message)) {
+          console.warn(`⚠️  costs ${col} (non-fatal):`, err.message);
+        }
+      }
+    }
+    try {
+      await sequelize.query(`
+        CREATE TABLE IF NOT EXISTS site_usage (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          "projectId" UUID NOT NULL REFERENCES projects(id),
+          "costId" UUID NOT NULL REFERENCES costs(id),
+          date TIMESTAMP WITH TIME ZONE NOT NULL,
+          "quantityUsed" NUMERIC(10,2) NOT NULL,
+          notes TEXT,
+          "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+          "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+          "deletedAt" TIMESTAMP WITH TIME ZONE
+        );
+      `);
+      console.log('✅ Costs BOQ columns and site_usage table ensured');
+    } catch (err) {
+      if (!/already exists|does not exist/i.test(err.message)) {
+        console.warn('⚠️  site_usage (non-fatal):', err.message);
+      }
+    }
+  };
+
   // Make materials.projectId (or project_id) nullable so materials can be global (no project).
   const ensureMaterialsProjectIdNullable = async () => {
     if (sequelize.getDialect() !== 'postgres') return;
@@ -718,6 +760,7 @@ if (require.main === module) {
         .then(() => ensureRoleEnums())
         .then(() => ensureMaterialsProjectIdNullable())
         .then(() => ensureCostTypeEnum())
+        .then(() => ensureCostsAndSiteUsageMigration())
         .then(() => console.log('✅ Database connection verified (pre-seeded)'))
     : (async () => {
         await ensureRoleEnums();
@@ -726,6 +769,7 @@ if (require.main === module) {
         console.log('✅ Database synced');
         await ensureMaterialsProjectIdNullable();
         await ensureCostTypeEnum();
+        await ensureCostsAndSiteUsageMigration();
 
         const autoSeed = process.env.AUTO_SEED !== 'false' && process.env.NODE_ENV !== 'production';
         if (autoSeed) {
