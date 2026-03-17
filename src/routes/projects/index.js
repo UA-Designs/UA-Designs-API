@@ -382,8 +382,8 @@ router.post('/', authenticateToken, authorize('ENGINEER_AND_ABOVE'), async (req,
   }
 });
 
-// Update project
-router.put('/:id', authenticateToken, authorizeOwnerOr('ADMIN_ONLY', async (req) => {
+// Update project (ADMIN/PROPRIETOR or MANAGER_AND_ABOVE e.g. PROJECT_MANAGER, ARCHITECT; or assigned project manager)
+router.put('/:id', authenticateToken, authorizeOwnerOr('MANAGER_AND_ABOVE', async (req) => {
   const project = await Project.findByPk(req.params.id, { attributes: ['projectManagerId'] });
   return project?.projectManagerId;
 }), async (req, res) => {
@@ -432,8 +432,8 @@ router.put('/:id', authenticateToken, authorizeOwnerOr('ADMIN_ONLY', async (req)
   }
 });
 
-// Update project status
-router.patch('/:id/status', authenticateToken, authorizeOwnerOr('ADMIN_ONLY', async (req) => {
+// Update project status (ADMIN/PROPRIETOR or MANAGER_AND_ABOVE e.g. PROJECT_MANAGER, ARCHITECT; or assigned project manager)
+router.patch('/:id/status', authenticateToken, authorizeOwnerOr('MANAGER_AND_ABOVE', async (req) => {
   const project = await Project.findByPk(req.params.id, { attributes: ['projectManagerId'] });
   return project?.projectManagerId;
 }), async (req, res) => {
