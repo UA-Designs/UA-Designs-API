@@ -7,7 +7,7 @@
  * Validate cost creation/update data
  */
 const validateCost = (req, res, next) => {
-  const { name, type, amount, date } = req.body;
+  const { name, type, amount, date, estimatedQty, unitCost, projectId } = req.body;
   const errors = [];
 
   // Required field validation
@@ -27,9 +27,14 @@ const validateCost = (req, res, next) => {
     }
   }
 
-  if (amount === undefined || amount === null) {
-    errors.push({ field: 'amount', message: 'Amount is required' });
-  } else if (isNaN(parseFloat(amount)) || parseFloat(amount) < 0) {
+  // Amount: either direct amount OR estimatedQty + unitCost (for BOQ)
+  const hasAmount = amount !== undefined && amount !== null && !isNaN(parseFloat(amount)) && parseFloat(amount) >= 0;
+  const hasEstimate = estimatedQty !== undefined && estimatedQty !== null && unitCost !== undefined && unitCost !== null
+    && !isNaN(parseFloat(estimatedQty)) && parseFloat(estimatedQty) >= 0
+    && !isNaN(parseFloat(unitCost)) && parseFloat(unitCost) >= 0;
+  if (!hasAmount && !hasEstimate) {
+    errors.push({ field: 'amount', message: 'Either amount or both estimatedQty and unitCost are required (non-negative numbers)' });
+  } else if (hasAmount && (isNaN(parseFloat(amount)) || parseFloat(amount) < 0)) {
     errors.push({ field: 'amount', message: 'Amount must be a positive number' });
   }
 
@@ -37,6 +42,10 @@ const validateCost = (req, res, next) => {
     errors.push({ field: 'date', message: 'Date is required' });
   } else if (isNaN(Date.parse(date))) {
     errors.push({ field: 'date', message: 'Date must be a valid date string' });
+  }
+
+  if (!projectId) {
+    errors.push({ field: 'projectId', message: 'Project ID is required so the BOQ item appears in the project list' });
   }
 
   if (errors.length > 0) {

@@ -30,24 +30,26 @@ class CostController {
         amountReceived
       } = req.body;
 
-      // Validate required fields
-      // Require either a direct amount or both estimatedQty and unitCost
+      // Validate required fields (projectId required so BOQ item shows in project list)
       if (!name || !type || (!amount && !(estimatedQty && unitCost)) || !date) {
         return res.status(400).json({
           success: false,
           message: 'Missing required fields: name, type, date, and either amount or (estimatedQty and unitCost) are required'
         });
       }
+      if (!projectId) {
+        return res.status(400).json({
+          success: false,
+          message: 'projectId is required so the BOQ item appears in the project list'
+        });
+      }
 
-      // Validate project exists if projectId provided
-      if (projectId) {
-        const project = await Project.findByPk(projectId);
-        if (!project) {
-          return res.status(404).json({
-            success: false,
-            message: 'Project not found'
-          });
-        }
+      const project = await Project.findByPk(projectId);
+      if (!project) {
+        return res.status(404).json({
+          success: false,
+          message: 'Project not found'
+        });
       }
 
       // Validate task exists if taskId provided

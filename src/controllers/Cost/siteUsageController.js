@@ -16,6 +16,14 @@ class SiteUsageController {
         });
       }
 
+      const qty = parseFloat(quantityUsed);
+      if (Number.isNaN(qty) || qty < 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'quantityUsed must be a non-negative number'
+        });
+      }
+
       const project = await Project.findByPk(projectId);
       if (!project) {
         return res.status(404).json({
@@ -36,20 +44,12 @@ class SiteUsageController {
         projectId,
         costId,
         date: new Date(date),
-        quantityUsed: parseFloat(quantityUsed),
-        notes
+        quantityUsed: qty,
+        notes: notes || null
       });
 
       // Recompute aggregates for this cost
-      const aggregates = await SiteUsage.findAll({
-        where: { costId },
-        attributes: [
-          [SiteUsage.sequelize.fn('COALESCE', SiteUsage.sequelize.fn('SUM', SiteUsage.sequelize.col('quantityUsed')), 0), 'totalQty']
-        ],
-        raw: true
-      });
-
-      const totalQty = parseFloat(aggregates[0]?.totalQty || 0);
+      const totalQty = parseFloat(await SiteUsage.sum('quantityUsed', { where: { costId } }) || 0);
       const unitCost = cost.unitCost ? parseFloat(cost.unitCost) : 0;
       const amountReceived = unitCost > 0 ? totalQty * unitCost : 0;
 
