@@ -6,6 +6,13 @@ const taskController = require('../../controllers/Schedule/taskController');
 const { Op } = require('sequelize');
 const router = express.Router();
 
+const toIsoOrNull = (value) => (value ? new Date(value).toISOString() : null);
+const diffInDays = (laterDate, earlierDate) => {
+  if (!laterDate || !earlierDate) return null;
+  const ms = new Date(laterDate).getTime() - new Date(earlierDate).getTime();
+  return Math.round(ms / (1000 * 60 * 60 * 24));
+};
+
 // Health check
 router.get('/health', (req, res) => {
   res.json({
@@ -141,6 +148,15 @@ router.get('/projects/:projectId/schedule', authenticateToken, async (req, res) 
       priority: task.priority,
       startDate: task.startDate,
       endDate: task.endDate,
+      plannedStartDate: task.plannedStartDate,
+      plannedEndDate: task.plannedEndDate,
+      actualStartDate: task.actualStartDate,
+      actualEndDate: task.actualEndDate,
+      actual_end_date: toIsoOrNull(task.actualEndDate),
+      completedAt: toIsoOrNull(task.actualEndDate),
+      completed_at: toIsoOrNull(task.actualEndDate),
+      completionDelayDays: diffInDays(task.actualEndDate, task.plannedEndDate || task.endDate),
+      completionDays: diffInDays(task.actualEndDate, task.actualStartDate),
       duration: task.duration,
       assignedTo: task.assignedUser ? `${task.assignedUser.firstName} ${task.assignedUser.lastName}` : 'Unassigned',
       isCritical: task.isCritical,

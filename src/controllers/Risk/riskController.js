@@ -1,5 +1,45 @@
 const riskService = require('../../services/Risk/riskService');
 
+const normalizeDelayDaysInput = (payload = {}) => {
+  const candidates = [
+    payload.delayDays,
+    payload.scheduleDelayDays,
+    payload.impactDays,
+    payload.delay_days,
+    payload.schedule_delay_days,
+    payload.impact_days
+  ];
+  const raw = candidates.find(v => v !== undefined && v !== null && v !== '');
+  if (raw === undefined) return undefined;
+
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return undefined;
+  return Math.max(0, Math.trunc(parsed));
+};
+
+const normalizeRiskPayload = (payload = {}) => {
+  const normalized = { ...payload };
+  const delayDays = normalizeDelayDaysInput(payload);
+  if (delayDays !== undefined) {
+    normalized.delayDays = delayDays;
+  }
+  return normalized;
+};
+
+const serializeRisk = (risk) => {
+  if (!risk) return risk;
+  const base = typeof risk.toJSON === 'function' ? risk.toJSON() : { ...risk };
+  const delayDays = Number.isFinite(Number(base.delayDays)) ? Number(base.delayDays) : 0;
+  return {
+    ...base,
+    delayDays,
+    scheduleDelayDays: delayDays,
+    impactDays: delayDays,
+    delay_days: delayDays,
+    category: base.riskCategory?.name || null
+  };
+};
+
 class RiskController {
   async getAll(req, res) {
     try {
@@ -20,7 +60,7 @@ class RiskController {
 
       res.json({
         success: true,
-        data: result.items,
+        data: result.items.map(serializeRisk),
         pagination: {
           currentPage: result.page,
           totalPages: result.totalPages,
@@ -50,7 +90,7 @@ class RiskController {
         });
       }
 
-      res.json({ success: true, data: risk });
+      res.json({ success: true, data: serializeRisk(risk) });
     } catch (error) {
       console.error('RiskController.getById error:', error);
       res.status(500).json({
@@ -64,7 +104,7 @@ class RiskController {
   async create(req, res) {
     try {
       const data = {
-        ...req.body,
+        ...normalizeRiskPayload(req.body),
         identifiedBy: req.body.identifiedBy || req.user.id
       };
 
@@ -73,7 +113,7 @@ class RiskController {
       res.status(201).json({
         success: true,
         message: 'Risk created successfully',
-        data: risk
+        data: serializeRisk(risk)
       });
     } catch (error) {
       console.error('RiskController.create error:', error);
@@ -87,7 +127,7 @@ class RiskController {
 
   async update(req, res) {
     try {
-      const risk = await riskService.update(req.params.id, req.body);
+      const risk = await riskService.update(req.params.id, normalizeRiskPayload(req.body));
 
       if (!risk) {
         return res.status(404).json({
@@ -99,7 +139,7 @@ class RiskController {
       res.json({
         success: true,
         message: 'Risk updated successfully',
-        data: risk
+        data: serializeRisk(risk)
       });
     } catch (error) {
       console.error('RiskController.update error:', error);
@@ -151,7 +191,7 @@ class RiskController {
       res.json({
         success: true,
         message: 'Risk status updated successfully',
-        data: risk
+        data: serializeRisk(risk)
       });
     } catch (error) {
       console.error('RiskController.updateStatus error:', error);
@@ -178,7 +218,7 @@ class RiskController {
       res.json({
         success: true,
         message: 'Risk assessed successfully',
-        data: risk
+        data: serializeRisk(risk)
       });
     } catch (error) {
       console.error('RiskController.assess error:', error);
@@ -205,7 +245,7 @@ class RiskController {
       res.json({
         success: true,
         message: 'Risk escalated successfully',
-        data: risk
+        data: serializeRisk(risk)
       });
     } catch (error) {
       console.error('RiskController.escalate error:', error);
@@ -269,6 +309,21 @@ class RiskController {
       res.status(500).json({
         success: false,
         message: 'Failed to generate risk report',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+
+  async getScheduleImpact(req, res) {
+    try {
+      const { projectId } = req.params;
+      const data = await riskService.getScheduleImpact(projectId);
+      res.json({ success: true, data });
+    } catch (error) {
+      console.error('RiskController.getScheduleImpact error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to compute schedule impact from risks',
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }

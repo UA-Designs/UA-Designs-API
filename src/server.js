@@ -779,6 +779,20 @@ if (require.main === module) {
     }
   };
 
+  // Add risk schedule-delay column used by schedule impact integration.
+  const ensureRiskScheduleDelayMigration = async () => {
+    if (sequelize.getDialect() !== 'postgres') return;
+    try {
+      await sequelize.query('ALTER TABLE risks ADD COLUMN IF NOT EXISTS "delayDays" INTEGER DEFAULT 0;');
+      await sequelize.query('UPDATE risks SET "delayDays" = 0 WHERE "delayDays" IS NULL;');
+      console.log('✅ risks delayDays column ensured');
+    } catch (err) {
+      if (!/already exists|does not exist/i.test(err.message)) {
+        console.warn('⚠️  risks delayDays (non-fatal):', err.message);
+      }
+    }
+  };
+
   // When SEEDED=true the DB was already set up by a seed script
   // (e.g. dev:clean or dev:demo), so skip force-sync and auto-seed.
   const preSeeded = process.env.SEEDED === 'true';
@@ -791,6 +805,7 @@ if (require.main === module) {
         .then(() => ensureCostTypeEnum())
         .then(() => ensureCostsAndSiteUsageMigration())
         .then(() => ensureExpensesCostLinkMigration())
+        .then(() => ensureRiskScheduleDelayMigration())
         .then(() => console.log('✅ Database connection verified (pre-seeded)'))
     : (async () => {
         await ensureRoleEnums();
@@ -802,6 +817,7 @@ if (require.main === module) {
         await ensureCostTypeEnum();
         await ensureCostsAndSiteUsageMigration();
         await ensureExpensesCostLinkMigration();
+        await ensureRiskScheduleDelayMigration();
 
         const autoSeed = process.env.AUTO_SEED !== 'false' && process.env.NODE_ENV !== 'production';
         if (autoSeed) {

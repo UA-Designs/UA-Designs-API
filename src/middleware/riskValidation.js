@@ -37,6 +37,9 @@ const validateCreateRisk = [
   body('impact')
     .notEmpty().withMessage('Impact is required')
     .isFloat({ min: 0, max: 1 }).withMessage('Impact must be between 0 and 1'),
+  body(['delayDays', 'scheduleDelayDays', 'impactDays', 'delay_days'])
+    .optional()
+    .isInt({ min: 0 }).withMessage('Delay days must be a non-negative integer'),
   body('projectId')
     .notEmpty().withMessage('Project ID is required')
     .isUUID().withMessage('Project ID must be a valid UUID'),
@@ -78,6 +81,9 @@ const validateUpdateRisk = [
   body('impact')
     .optional()
     .isFloat({ min: 0, max: 1 }).withMessage('Impact must be between 0 and 1'),
+  body(['delayDays', 'scheduleDelayDays', 'impactDays', 'delay_days'])
+    .optional()
+    .isInt({ min: 0 }).withMessage('Delay days must be a non-negative integer'),
   body('status')
     .optional()
     .isIn(VALID_STATUSES).withMessage(`Status must be one of: ${VALID_STATUSES.join(', ')}`),

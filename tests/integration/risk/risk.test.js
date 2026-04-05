@@ -1,6 +1,6 @@
 const request = require('supertest');
 const app = require('../../../src/server');
-const { sequelize, User, Project } = require('../../../src/models');
+const { sequelize, User, Project, Task, RiskCategory } = require('../../../src/models');
 const { generateAuthToken, createTestUser, createTestProject } = require('../../helpers/testHelpers');
 
 let authToken;
@@ -128,6 +128,89 @@ describe('Risk API', () => {
     it('should return 401 without auth token', async () => {
       const response = await request(app).get('/api/risk/risks');
       expect(response.status).toBe(401);
+    });
+
+    it('should expose schedule delay aliases in risk payload', async () => {
+      const scheduleCategory = await RiskCategory.create({
+        name: `Schedule-Test-${Date.now()}`,
+        description: 'Schedule category for integration test'
+      });
+
+      const createResponse = await request(app)
+        .post('/api/risk/risks')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          title: 'Alias Delay Risk',
+          probability: 0.4,
+          impact: 0.5,
+          projectId: testProject.id,
+          categoryId: scheduleCategory.id,
+          delay_days: 6
+        });
+
+      expect(createResponse.status).toBe(201);
+      expect(createResponse.body.data.delayDays).toBe(6);
+      expect(createResponse.body.data.scheduleDelayDays).toBe(6);
+      expect(createResponse.body.data.impactDays).toBe(6);
+    });
+  });
+
+  describe('GET /api/risk/schedule-impact/:projectId', () => {
+    it('should include only open schedule risks in finish-date delay computation', async () => {
+      const isolatedProject = await Project.create({
+        ...createTestProject({ name: `Risk Schedule Isolated ${Date.now()}` }),
+        projectManagerId: testUser.id
+      });
+
+      const scheduleCategory = await RiskCategory.create({
+        name: `Schedule-Impact-${Date.now()}`,
+        description: 'Schedule impact category'
+      });
+
+      await Task.create({
+        name: 'Schedule Baseline Task',
+        projectId: isolatedProject.id,
+        status: 'NOT_STARTED',
+        priority: 'MEDIUM',
+        plannedEndDate: new Date('2030-01-10T00:00:00.000Z')
+      });
+
+      await request(app)
+        .post('/api/risk/risks')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          title: 'Open Schedule Risk',
+          probability: 0.8,
+          impact: 0.8,
+          projectId: isolatedProject.id,
+          categoryId: scheduleCategory.id,
+          delayDays: 5,
+          status: 'ANALYZED'
+        });
+
+      await request(app)
+        .post('/api/risk/risks')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          title: 'Closed Schedule Risk',
+          probability: 0.8,
+          impact: 0.8,
+          projectId: isolatedProject.id,
+          categoryId: scheduleCategory.id,
+          delayDays: 4,
+          status: 'CLOSED'
+        });
+
+      const impactResponse = await request(app)
+        .get(`/api/risk/schedule-impact/${isolatedProject.id}`)
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(impactResponse.status).toBe(200);
+      expect(impactResponse.body.success).toBe(true);
+      expect(impactResponse.body.data.totalDelayDays).toBe(5);
+      expect(impactResponse.body.data.includedRiskCount).toBe(1);
+      expect(impactResponse.body.data.baselineFinishDate).toContain('2030-01-10');
+      expect(impactResponse.body.data.adjustedFinishDate).toContain('2030-01-15');
     });
   });
 

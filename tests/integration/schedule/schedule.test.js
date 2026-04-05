@@ -235,6 +235,30 @@ describe('Schedule API', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
     });
+
+    it('should expose completedAt when task is completed', async () => {
+      const res = await request(app)
+        .put(`/api/schedule/tasks/${createdTaskId}/status`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ status: 'COMPLETED' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.task.actualEndDate).toBeTruthy();
+      expect(res.body.data.task.completedAt).toBeTruthy();
+      expect(res.body.data.task.completed_at).toBeTruthy();
+    });
+
+    it('should accept snake_case completed_at alias on status update', async () => {
+      const completedAt = '2030-01-20T00:00:00.000Z';
+      const res = await request(app)
+        .put(`/api/schedule/tasks/${createdTaskId}/status`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ status: 'COMPLETED', completed_at: completedAt });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.task.actualEndDate).toContain('2030-01-20');
+      expect(res.body.data.task.completedAt).toContain('2030-01-20');
+    });
   });
 
   // --- Create task dependency ---
@@ -332,6 +356,9 @@ describe('Schedule API', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
+      expect(Array.isArray(res.body.data.tasks)).toBe(true);
+      expect(res.body.data.tasks[0]).toHaveProperty('completedAt');
+      expect(res.body.data.tasks[0]).toHaveProperty('completionDelayDays');
     });
   });
 

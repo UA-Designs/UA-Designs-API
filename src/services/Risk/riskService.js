@@ -2,6 +2,27 @@ const { Op } = require('sequelize');
 const { Risk, RiskMitigation, RiskCategory, Project, User, Task } = require('../../models');
 
 class RiskService {
+  resolveDelayDays(risk) {
+    const explicit = Number(risk.delayDays);
+    if (Number.isFinite(explicit) && explicit >= 0) {
+      return { delayDays: Math.trunc(explicit), derivedFromSeverity: false };
+    }
+
+    const severityFallback = {
+      LOW: 1,
+      MEDIUM: 3,
+      HIGH: 7,
+      CRITICAL: 14
+    };
+    const fallback = severityFallback[risk.severity] || 0;
+    return { delayDays: fallback, derivedFromSeverity: true };
+  }
+
+  isScheduleRisk(risk) {
+    const categoryName = (risk?.riskCategory?.name || '').toLowerCase();
+    return categoryName.includes('schedule');
+  }
+
   // --- Scoring helpers ---
 
   calculateRiskScore(probability, impact) {
@@ -376,6 +397,70 @@ class RiskService {
           status: r.status,
           mitigationCount: r.mitigations.length
         }))
+    };
+  }
+
+  async getScheduleImpact(projectId) {
+    const [risks, tasks] = await Promise.all([
+      Risk.findAll({
+        where: {
+          projectId,
+          status: { [Op.ne]: 'CLOSED' }
+        },
+        include: [
+          {
+            model: RiskCategory,
+            as: 'riskCategory',
+            attributes: ['id', 'name', 'color']
+          }
+        ],
+        order: [['createdAt', 'DESC']]
+      }),
+      Task.findAll({
+        where: { projectId },
+        attributes: ['id', 'name', 'plannedEndDate', 'endDate', 'actualEndDate']
+      })
+    ]);
+
+    const scheduleRisks = risks.filter(risk => this.isScheduleRisk(risk));
+    const includedRisks = scheduleRisks.map(risk => {
+      const resolved = this.resolveDelayDays(risk);
+      return {
+        id: risk.id,
+        title: risk.title,
+        status: risk.status,
+        category: risk.riskCategory?.name || null,
+        delayDays: resolved.delayDays,
+        derivedDelay: resolved.derivedFromSeverity
+      };
+    });
+    const totalDelayDays = includedRisks.reduce((sum, risk) => sum + risk.delayDays, 0);
+
+    let baselineFinishDate = null;
+    for (const task of tasks) {
+      const candidate = task.plannedEndDate || task.endDate || task.actualEndDate;
+      if (!candidate) continue;
+      const candidateDate = new Date(candidate);
+      if (!baselineFinishDate || candidateDate > baselineFinishDate) {
+        baselineFinishDate = candidateDate;
+      }
+    }
+
+    let adjustedFinishDate = null;
+    if (baselineFinishDate) {
+      adjustedFinishDate = new Date(baselineFinishDate);
+      adjustedFinishDate.setUTCDate(adjustedFinishDate.getUTCDate() + totalDelayDays);
+    }
+
+    return {
+      projectId,
+      baselineFinishDate: baselineFinishDate ? baselineFinishDate.toISOString() : null,
+      adjustedFinishDate: adjustedFinishDate ? adjustedFinishDate.toISOString() : null,
+      totalDelayDays,
+      includedRiskCount: includedRisks.length,
+      consideredOpenRisks: risks.length,
+      delayComputationStrategy: 'Use delayDays when present, fallback to severity mapping',
+      includedRisks
     };
   }
 }

@@ -29,6 +29,14 @@ module.exports = (sequelize, DataTypes) => {
         max: 1
       }
     },
+    delayDays: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      validate: {
+        min: 0
+      }
+    },
     riskScore: {
       type: DataTypes.DECIMAL(5, 4),
       allowNull: true

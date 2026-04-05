@@ -47,5 +47,6 @@ router.delete('/mitigations/:id', authenticateToken, authorize('MANAGER_AND_ABOV
 router.get('/matrix/:projectId', authenticateToken, riskController.getRiskMatrix);
 router.get('/monitoring/:projectId', authenticateToken, riskController.getMonitoringData);
 router.get('/report/:projectId', authenticateToken, riskController.getRiskReport);
+router.get('/schedule-impact/:projectId', authenticateToken, riskController.getScheduleImpact);
 
 module.exports = router;

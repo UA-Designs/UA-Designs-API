@@ -2,6 +2,31 @@ const taskService = require('../../services/Schedule/taskService');
 const { Task, TaskDependency, Project, User } = require('../../models');
 const { Op } = require('sequelize');
 
+const normalizeTaskPayload = (payload = {}) => {
+  const normalized = { ...payload };
+  const completionCandidate = [
+    payload.completedAt,
+    payload.completed_at,
+    payload.actual_end_date
+  ].find(v => v !== undefined && v !== null && v !== '');
+
+  if (completionCandidate !== undefined && normalized.actualEndDate === undefined) {
+    normalized.actualEndDate = completionCandidate;
+  }
+  return normalized;
+};
+
+const serializeTask = (taskLike) => {
+  const task = typeof taskLike?.toJSON === 'function' ? taskLike.toJSON() : { ...taskLike };
+  const completedAt = task.actualEndDate || null;
+  return {
+    ...task,
+    actual_end_date: completedAt,
+    completedAt,
+    completed_at: completedAt
+  };
+};
+
 class TaskController {
   /**
    * Get all tasks with filtering and pagination
@@ -24,7 +49,10 @@ class TaskController {
 
       res.json({
         success: true,
-        data: result
+        data: {
+          ...result,
+          tasks: result.tasks.map(serializeTask)
+        }
       });
     } catch (error) {
       console.error('Get tasks error:', error);
@@ -95,7 +123,7 @@ class TaskController {
 
       res.json({
         success: true,
-        data: { task }
+        data: { task: serializeTask(task) }
       });
     } catch (error) {
       console.error('Get task error:', error);
@@ -194,7 +222,7 @@ class TaskController {
       res.status(201).json({
         success: true,
         message: 'Task created successfully',
-        data: { task }
+        data: { task: serializeTask(task) }
       });
     } catch (error) {
       console.error('Create task error:', error);
@@ -212,7 +240,7 @@ class TaskController {
   async updateTask(req, res) {
     try {
       const { id } = req.params;
-      const updateData = req.body;
+      const updateData = normalizeTaskPayload(req.body);
 
       const task = await Task.findByPk(id);
       if (!task) {
@@ -265,7 +293,7 @@ class TaskController {
       res.json({
         success: true,
         message: 'Task updated successfully',
-        data: { task }
+        data: { task: serializeTask(task) }
       });
     } catch (error) {
       console.error('Update task error:', error);
@@ -283,7 +311,8 @@ class TaskController {
   async updateTaskStatus(req, res) {
     try {
       const { id } = req.params;
-      const { status, progress, actualStartDate, actualEndDate, notes } = req.body;
+      const normalizedBody = normalizeTaskPayload(req.body);
+      const { status, progress, actualStartDate, actualEndDate, notes } = normalizedBody;
 
       const task = await Task.findByPk(id);
       if (!task) {
@@ -343,7 +372,7 @@ class TaskController {
       res.json({
         success: true,
         message: 'Task status updated successfully',
-        data: { task }
+        data: { task: serializeTask(task) }
       });
     } catch (error) {
       console.error('Update task status error:', error);
