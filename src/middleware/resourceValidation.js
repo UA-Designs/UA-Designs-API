@@ -55,7 +55,7 @@ const validateCreateMaterial = [
     .notEmpty().withMessage('Unit cost is required')
     .custom((v) => !isNaN(Number(v)) && Number(v) >= 0).withMessage('Unit cost must be a non-negative number'),
   body('quantity')
-    .notEmpty().withMessage('Quantity is required')
+    .optional()
     .custom((v) => !isNaN(Number(v)) && Number(v) >= 0).withMessage('Quantity must be a non-negative number'),
   body('status')
     .optional()

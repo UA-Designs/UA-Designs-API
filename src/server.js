@@ -779,6 +779,23 @@ if (require.main === module) {
     }
   };
 
+  // Allow catalog materials without stock quantity on creation.
+  const ensureMaterialsQuantityNullable = async () => {
+    if (sequelize.getDialect() !== 'postgres') return;
+    const columns = ['"quantity"', 'quantity'];
+    for (const col of columns) {
+      try {
+        await sequelize.query(`ALTER TABLE materials ALTER COLUMN ${col} DROP NOT NULL;`);
+        console.log('✅ materials quantity is nullable');
+        return;
+      } catch (err) {
+        if (!/does not exist|column .* does not exist/i.test(err.message)) {
+          console.warn('⚠️  materials quantity nullable (non-fatal):', err.message);
+        }
+      }
+    }
+  };
+
   // Add risk-to-schedule linking columns/tables used by Gantt risk adjustment.
   const ensureRiskScheduleDelayMigration = async () => {
     if (sequelize.getDialect() !== 'postgres') return;
@@ -842,6 +859,7 @@ if (require.main === module) {
     ? sequelize.authenticate()
         .then(() => ensureRoleEnums())
         .then(() => ensureMaterialsProjectIdNullable())
+        .then(() => ensureMaterialsQuantityNullable())
         .then(() => ensureMaterialsCreatedAtIndex())
         .then(() => ensureCostTypeEnum())
         .then(() => ensureCostsAndSiteUsageMigration())
@@ -855,6 +873,7 @@ if (require.main === module) {
         await sequelize.sync({ force: forceSync });
         console.log('✅ Database synced');
         await ensureMaterialsProjectIdNullable();
+        await ensureMaterialsQuantityNullable();
         await ensureMaterialsCreatedAtIndex();
         await ensureCostTypeEnum();
         await ensureCostsAndSiteUsageMigration();

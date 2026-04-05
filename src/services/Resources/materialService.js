@@ -69,8 +69,17 @@ class MaterialService {
   }
 
   async create(data) {
+    if (data.quantity === undefined) {
+      // Catalog entries can be templates with no on-hand stock quantity yet.
+      data.quantity = null;
+      data.totalCost = null;
+    }
     if (data.quantity !== undefined && data.unitCost !== undefined) {
-      data.totalCost = parseFloat((parseFloat(data.quantity) * parseFloat(data.unitCost)).toFixed(2));
+      const quantity = parseFloat(data.quantity);
+      const unitCost = parseFloat(data.unitCost);
+      if (!Number.isNaN(quantity) && !Number.isNaN(unitCost)) {
+        data.totalCost = parseFloat((quantity * unitCost).toFixed(2));
+      }
     }
     return Material.create(data);
   }
@@ -82,7 +91,11 @@ class MaterialService {
     if (data.quantity !== undefined || data.unitCost !== undefined) {
       const qty = data.quantity !== undefined ? parseFloat(data.quantity) : parseFloat(material.quantity);
       const rate = data.unitCost !== undefined ? parseFloat(data.unitCost) : parseFloat(material.unitCost);
-      data.totalCost = parseFloat((qty * rate).toFixed(2));
+      if (!Number.isNaN(qty) && !Number.isNaN(rate)) {
+        data.totalCost = parseFloat((qty * rate).toFixed(2));
+      } else {
+        data.totalCost = null;
+      }
     }
 
     await material.update(data);
