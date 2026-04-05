@@ -13,6 +13,13 @@ const normalizeTaskPayload = (payload = {}) => {
   if (completionCandidate !== undefined && normalized.actualEndDate === undefined) {
     normalized.actualEndDate = completionCandidate;
   }
+  const actualStartCandidate = [
+    payload.actualStartDate,
+    payload.actual_start_date
+  ].find(v => v !== undefined && v !== null && v !== '');
+  if (actualStartCandidate !== undefined && normalized.actualStartDate === undefined) {
+    normalized.actualStartDate = actualStartCandidate;
+  }
   return normalized;
 };
 
@@ -32,6 +39,16 @@ const serializeTask = (taskLike) => {
     linkedRiskIds
   };
 };
+
+const canModifyTask = (req, project, task) => (
+  ['ADMIN', 'PROPRIETOR'].includes(req.user.role)
+  || project.projectManagerId === req.user.id
+  || task.assignedTo === req.user.id
+);
+
+const canManageProject = (req, project) => (
+  ['ADMIN', 'PROPRIETOR'].includes(req.user.role) || project.projectManagerId === req.user.id
+);
 
 class TaskController {
   /**
@@ -118,9 +135,7 @@ class TaskController {
 
       // Check user permissions
       const project = await Project.findByPk(task.projectId);
-    if (!['ADMIN', 'PROPRIETOR'].includes(req.user.role) && 
-          project.projectManagerId !== req.user.id &&
-          task.assignedTo !== req.user.id) {
+      if (!canModifyTask(req, project, task)) {
         return res.status(403).json({
           success: false,
           message: 'Access denied to this task'
@@ -214,7 +229,10 @@ class TaskController {
         description,
         startDate: startDate ? new Date(startDate) : null,
         endDate: endDate ? new Date(endDate) : null,
+        baselineStartDate: startDate ? new Date(startDate) : null,
+        baselineEndDate: endDate ? new Date(endDate) : null,
         duration: calculatedDuration,
+        scheduleRevision: 1,
         priority: priority || 'MEDIUM',
         assignedTo,
         projectId,
@@ -261,12 +279,19 @@ class TaskController {
 
       // Check user permissions
       const project = await Project.findByPk(task.projectId);
-    if (!['ADMIN', 'PROPRIETOR'].includes(req.user.role) && 
-          project.projectManagerId !== req.user.id &&
-          task.assignedTo !== req.user.id) {
+      if (!canModifyTask(req, project, task)) {
         return res.status(403).json({
           success: false,
           message: 'Only assigned user, project manager, or admin can update this task'
+        });
+      }
+
+      const attemptedBaselineChange = ['baselineStartDate', 'baselineEndDate', 'scheduleRevision']
+        .some(field => Object.prototype.hasOwnProperty.call(updateData, field));
+      if (attemptedBaselineChange) {
+        return res.status(400).json({
+          success: false,
+          message: 'Baseline fields are immutable. Use baseline reset endpoint to change them.'
         });
       }
 
@@ -291,8 +316,19 @@ class TaskController {
       }
 
       // Convert date strings to Date objects
+      const startDateChanged = updateData.startDate && (
+        !task.startDate || new Date(updateData.startDate).toISOString() !== new Date(task.startDate).toISOString()
+      );
+      const endDateChanged = updateData.endDate && (
+        !task.endDate || new Date(updateData.endDate).toISOString() !== new Date(task.endDate).toISOString()
+      );
       if (updateData.startDate) updateData.startDate = new Date(updateData.startDate);
       if (updateData.endDate) updateData.endDate = new Date(updateData.endDate);
+      if (updateData.actualStartDate) updateData.actualStartDate = new Date(updateData.actualStartDate);
+      if (updateData.actualEndDate) updateData.actualEndDate = new Date(updateData.actualEndDate);
+      if (startDateChanged || endDateChanged) {
+        updateData.scheduleRevision = (task.scheduleRevision || 1) + 1;
+      }
 
       await task.update(updateData);
 
@@ -333,9 +369,7 @@ class TaskController {
 
       // Check user permissions
       const project = await Project.findByPk(task.projectId);
-    if (!['ADMIN', 'PROPRIETOR'].includes(req.user.role) && 
-          project.projectManagerId !== req.user.id &&
-          task.assignedTo !== req.user.id) {
+      if (!canModifyTask(req, project, task)) {
         return res.status(403).json({
           success: false,
           message: 'Only assigned user, project manager, or admin can update task status'
@@ -385,6 +419,115 @@ class TaskController {
       });
     } catch (error) {
       console.error('Update task status error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: error.message
+      });
+    }
+  }
+
+  async patchTaskActualDates(req, res) {
+    try {
+      const { id } = req.params;
+      const payload = normalizeTaskPayload(req.body);
+      const { actualStartDate, actualEndDate, notes } = payload;
+
+      if (!actualStartDate && !actualEndDate && !notes) {
+        return res.status(400).json({
+          success: false,
+          message: 'Provide at least one field: actualStartDate, actualEndDate, or notes'
+        });
+      }
+
+      const task = await Task.findByPk(id);
+      if (!task) {
+        return res.status(404).json({
+          success: false,
+          message: 'Task not found'
+        });
+      }
+
+      const project = await Project.findByPk(task.projectId);
+      if (!canModifyTask(req, project, task)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Only assigned user, project manager, or admin can patch task actual dates'
+        });
+      }
+
+      const updateData = {};
+      if (actualStartDate) updateData.actualStartDate = new Date(actualStartDate);
+      if (actualEndDate) {
+        updateData.actualEndDate = new Date(actualEndDate);
+        updateData.status = 'COMPLETED';
+        updateData.progress = 100;
+      } else if (actualStartDate && task.status === 'NOT_STARTED') {
+        updateData.status = 'IN_PROGRESS';
+      }
+      if (notes) updateData.notes = notes;
+
+      await task.update(updateData);
+      await taskService.calculateCriticalPath(task.projectId);
+
+      const riskAdjustment = await taskService.calculateTaskRiskAdjustments(task.projectId, [task.id]);
+      const taskWithRiskData = taskService.mergeTaskWithRiskAdjustment(task, riskAdjustment.taskAdjustments);
+
+      res.json({
+        success: true,
+        message: 'Task actual dates patched successfully',
+        data: { task: serializeTask(taskWithRiskData) }
+      });
+    } catch (error) {
+      console.error('Patch task actual dates error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: error.message
+      });
+    }
+  }
+
+  async resetProjectBaseline(req, res) {
+    try {
+      const { projectId } = req.params;
+      const project = await Project.findByPk(projectId);
+      if (!project) {
+        return res.status(404).json({
+          success: false,
+          message: 'Project not found'
+        });
+      }
+      if (!canManageProject(req, project)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Only project managers and admins can reset baselines'
+        });
+      }
+
+      const tasks = await Task.findAll({ where: { projectId } });
+      for (const task of tasks) {
+        // Baseline reset intentionally captures the current planned schedule.
+        // eslint-disable-next-line no-await-in-loop
+        await task.update({
+          baselineStartDate: task.startDate || null,
+          baselineEndDate: task.endDate || null,
+          scheduleRevision: (task.scheduleRevision || 1) + 1
+        });
+      }
+
+      await taskService.calculateCriticalPath(projectId);
+      res.json({
+        success: true,
+        message: 'Project baseline reset successfully',
+        data: {
+          projectId,
+          tasksUpdated: tasks.length,
+          resetAt: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      console.error('Reset baseline error:', error);
       res.status(500).json({
         success: false,
         message: 'Internal server error',

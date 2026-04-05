@@ -810,6 +810,30 @@ if (require.main === module) {
     }
   };
 
+  // Add baseline vs actual task schedule tracking fields.
+  const ensureScheduleBaselineTrackingMigration = async () => {
+    if (sequelize.getDialect() !== 'postgres') return;
+    const queries = [
+      'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS "baselineStartDate" TIMESTAMP WITH TIME ZONE;',
+      'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS "baselineEndDate" TIMESTAMP WITH TIME ZONE;',
+      'ALTER TABLE tasks ADD COLUMN IF NOT EXISTS "scheduleRevision" INTEGER DEFAULT 1;',
+      'UPDATE tasks SET "baselineStartDate" = COALESCE("baselineStartDate", "startDate") WHERE "baselineStartDate" IS NULL;',
+      'UPDATE tasks SET "baselineEndDate" = COALESCE("baselineEndDate", "endDate") WHERE "baselineEndDate" IS NULL;',
+      'UPDATE tasks SET "scheduleRevision" = 1 WHERE "scheduleRevision" IS NULL;'
+    ];
+    try {
+      for (const sql of queries) {
+        // eslint-disable-next-line no-await-in-loop
+        await sequelize.query(sql);
+      }
+      console.log('✅ schedule baseline tracking columns ensured');
+    } catch (err) {
+      if (!/already exists|does not exist/i.test(err.message)) {
+        console.warn('⚠️  schedule baseline migration (non-fatal):', err.message);
+      }
+    }
+  };
+
   // When SEEDED=true the DB was already set up by a seed script
   // (e.g. dev:clean or dev:demo), so skip force-sync and auto-seed.
   const preSeeded = process.env.SEEDED === 'true';
@@ -823,6 +847,7 @@ if (require.main === module) {
         .then(() => ensureCostsAndSiteUsageMigration())
         .then(() => ensureExpensesCostLinkMigration())
         .then(() => ensureRiskScheduleDelayMigration())
+        .then(() => ensureScheduleBaselineTrackingMigration())
         .then(() => console.log('✅ Database connection verified (pre-seeded)'))
     : (async () => {
         await ensureRoleEnums();
@@ -835,6 +860,7 @@ if (require.main === module) {
         await ensureCostsAndSiteUsageMigration();
         await ensureExpensesCostLinkMigration();
         await ensureRiskScheduleDelayMigration();
+        await ensureScheduleBaselineTrackingMigration();
 
         const autoSeed = process.env.AUTO_SEED !== 'false' && process.env.NODE_ENV !== 'production';
         if (autoSeed) {

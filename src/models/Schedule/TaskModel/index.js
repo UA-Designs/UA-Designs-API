@@ -29,6 +29,14 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.DATE,
       allowNull: true
     },
+    baselineStartDate: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    baselineEndDate: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
     plannedStartDate: {
       type: DataTypes.DATE,
       allowNull: true
@@ -44,6 +52,11 @@ module.exports = (sequelize, DataTypes) => {
     actualEndDate: {
       type: DataTypes.DATE,
       allowNull: true
+    },
+    scheduleRevision: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 1
     },
     duration: {
       type: DataTypes.INTEGER,

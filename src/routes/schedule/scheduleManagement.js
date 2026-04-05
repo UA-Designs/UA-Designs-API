@@ -85,6 +85,7 @@ router.post('/tasks', authenticateToken, authorize('MANAGER_AND_ABOVE'), async (
 
 // Update task
 router.put('/tasks/:id', authenticateToken, authorize('ENGINEER_AND_ABOVE'), taskController.updateTask);
+router.patch('/tasks/:id', authenticateToken, authorize('ENGINEER_AND_ABOVE'), taskController.patchTaskActualDates);
 
 // Update task status/progress
 router.put('/tasks/:id/status', authenticateToken, authorize('ENGINEER_AND_ABOVE'), taskController.updateTaskStatus);
@@ -111,6 +112,7 @@ router.delete('/dependencies/:id', authenticateToken, authorize('MANAGER_AND_ABO
 // Get critical path for project
 router.get('/projects/:projectId/critical-path', authenticateToken, taskController.getCriticalPath);
 router.get('/projects/:projectId/risk-adjusted-tasks', authenticateToken, taskController.getTasks);
+router.post('/projects/:projectId/baseline/reset', authenticateToken, authorize('MANAGER_AND_ABOVE'), taskController.resetProjectBaseline);
 
 // ==================== SCHEDULE VISUALIZATION ROUTES ====================
 
@@ -151,10 +153,13 @@ router.get('/projects/:projectId/schedule', authenticateToken, async (req, res) 
       priority: task.priority,
       startDate: task.startDate,
       endDate: task.endDate,
+      baselineStartDate: task.baselineStartDate,
+      baselineEndDate: task.baselineEndDate,
       plannedStartDate: task.plannedStartDate,
       plannedEndDate: task.plannedEndDate,
       actualStartDate: task.actualStartDate,
       actualEndDate: task.actualEndDate,
+      scheduleRevision: task.scheduleRevision,
       actual_end_date: toIsoOrNull(task.actualEndDate),
       completedAt: toIsoOrNull(task.actualEndDate),
       completed_at: toIsoOrNull(task.actualEndDate),

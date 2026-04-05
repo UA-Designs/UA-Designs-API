@@ -32,6 +32,7 @@ describe('Schedule API', () => {
   let createdTaskId;
   let createdDependencyId;
   let secondTaskId;
+  let baselineTaskId;
 
   // --- Health check ---
 
@@ -73,6 +74,24 @@ describe('Schedule API', () => {
 
       expect(res.status).toBe(201);
       secondTaskId = res.body.data.task.id;
+    });
+
+    it('should initialize baseline dates from start/end on first creation', async () => {
+      const res = await request(app)
+        .post(`/api/schedule/projects/${testProject.id}/tasks`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          name: 'Baseline Task',
+          startDate: '2031-02-01T00:00:00.000Z',
+          endDate: '2031-02-10T00:00:00.000Z',
+          duration: 9
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.task.baselineStartDate).toContain('2031-02-01');
+      expect(res.body.data.task.baselineEndDate).toContain('2031-02-10');
+      expect(res.body.data.task.scheduleRevision).toBe(1);
+      baselineTaskId = res.body.data.task.id;
     });
 
     it('should return 400 when task name is missing', async () => {
@@ -139,6 +158,10 @@ describe('Schedule API', () => {
       expect(res.body.success).toBe(true);
       expect(res.body.data).toHaveProperty('tasks');
       expect(Array.isArray(res.body.data.tasks)).toBe(true);
+      expect(res.body.data.tasks[0]).toHaveProperty('baselineStartDate');
+      expect(res.body.data.tasks[0]).toHaveProperty('baselineEndDate');
+      expect(res.body.data.tasks[0]).toHaveProperty('actualStartDate');
+      expect(res.body.data.tasks[0]).toHaveProperty('actualEndDate');
     });
 
     it('should return 401 without token', async () => {
@@ -220,6 +243,54 @@ describe('Schedule API', () => {
         .send({ name: 'Ghost Update' });
 
       expect(res.status).toBe(404);
+    });
+
+    it('should keep baseline immutable and increment revision on schedule edits', async () => {
+      const before = await request(app)
+        .get(`/api/schedule/tasks/${baselineTaskId}`)
+        .set('Authorization', `Bearer ${authToken}`);
+      expect(before.status).toBe(200);
+
+      const update = await request(app)
+        .put(`/api/schedule/tasks/${baselineTaskId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          startDate: '2031-02-03T00:00:00.000Z',
+          endDate: '2031-02-12T00:00:00.000Z'
+        });
+      expect(update.status).toBe(200);
+      expect(update.body.data.task.startDate).toContain('2031-02-03');
+      expect(update.body.data.task.endDate).toContain('2031-02-12');
+      expect(update.body.data.task.baselineStartDate).toContain('2031-02-01');
+      expect(update.body.data.task.baselineEndDate).toContain('2031-02-10');
+      expect(update.body.data.task.scheduleRevision).toBeGreaterThan(before.body.data.task.scheduleRevision || 1);
+    });
+
+    it('should reject baseline mutation in normal task updates', async () => {
+      const res = await request(app)
+        .put(`/api/schedule/tasks/${baselineTaskId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          baselineStartDate: '2032-01-01T00:00:00.000Z'
+        });
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/immutable/i);
+    });
+  });
+
+  describe('PATCH /api/schedule/tasks/:id', () => {
+    it('should patch actual task dates', async () => {
+      const res = await request(app)
+        .patch(`/api/schedule/tasks/${baselineTaskId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          actualStartDate: '2031-02-04T00:00:00.000Z',
+          actualEndDate: '2031-02-15T00:00:00.000Z'
+        });
+      expect(res.status).toBe(200);
+      expect(res.body.data.task.actualStartDate).toContain('2031-02-04');
+      expect(res.body.data.task.actualEndDate).toContain('2031-02-15');
+      expect(res.body.data.task.completedAt).toContain('2031-02-15');
     });
   });
 
@@ -442,6 +513,26 @@ describe('Schedule API', () => {
       expect(afterCloseTask.riskDelayDays).toBe(3);
       expect(afterCloseTask.adjustedEndDate).toContain('2030-01-13');
       expect(afterCloseResponse.body.data.forecast.riskAdjustedFinishDate).toContain('2030-01-13');
+    });
+  });
+
+  describe('POST /api/schedule/projects/:projectId/baseline/reset', () => {
+    it('should reset baseline dates intentionally', async () => {
+      const res = await request(app)
+        .post(`/api/schedule/projects/${testProject.id}/baseline/reset`)
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.projectId).toBe(testProject.id);
+      expect(res.body.data.tasksUpdated).toBeGreaterThan(0);
+
+      const verify = await request(app)
+        .get(`/api/schedule/tasks/${baselineTaskId}`)
+        .set('Authorization', `Bearer ${authToken}`);
+      expect(verify.status).toBe(200);
+      expect(verify.body.data.task.baselineStartDate).toContain('2031-02-03');
+      expect(verify.body.data.task.baselineEndDate).toContain('2031-02-12');
     });
   });
 
