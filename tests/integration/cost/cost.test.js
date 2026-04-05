@@ -789,6 +789,152 @@ describe('Cost Management API', () => {
   });
 
   // =============================================
+  // BOQ REPORT (PER-ITEM ACTUALS)
+  // =============================================
+  describe('BOQ report items endpoint', () => {
+    const createBoqCost = async ({ name, estimatedQty = 100, unitCost = 10, projectId = testProject.id, tradeCategory = 'Structural' }) => {
+      const res = await request(app)
+        .post('/api/cost/costs')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name,
+          type: 'OTHER',
+          estimatedQty,
+          unitCost,
+          unit: 'Lot',
+          tradeCategory,
+          date: new Date().toISOString(),
+          projectId
+        });
+      expect(res.status).toBe(201);
+      return res.body.data;
+    };
+
+    const logUsage = async ({ costId, quantityUsed, projectId = testProject.id }) => {
+      const res = await request(app)
+        .post('/api/cost/site-usage')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          projectId,
+          costId,
+          quantityUsed,
+          date: new Date().toISOString()
+        });
+      expect(res.status).toBe(201);
+      return res.body.data;
+    };
+
+    const createAndApproveExpense = async ({ name, amount, costId, projectId = testProject.id }) => {
+      const createRes = await request(app)
+        .post('/api/cost/expenses')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name,
+          amount,
+          category: 'OTHER',
+          date: new Date().toISOString(),
+          projectId,
+          costId
+        });
+      expect(createRes.status).toBe(201);
+
+      const approveRes = await request(app)
+        .patch(`/api/cost/expenses/${createRes.body.data.id}/approve`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ notes: 'Approved for BOQ report' });
+      expect(approveRes.status).toBe(200);
+      return approveRes.body.data;
+    };
+
+    it('should include per-item fields and usage-derived actuals in GET /api/cost/costs', async () => {
+      const cost = await createBoqCost({ name: 'Per-Item Cost API Check', estimatedQty: 100, unitCost: 10, tradeCategory: 'Mechanical' });
+      await logUsage({ costId: cost.id, quantityUsed: 5 });
+
+      const res = await request(app)
+        .get(`/api/cost/costs?projectId=${testProject.id}&limit=200`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      const row = res.body.data.costs.find(item => item.id === cost.id);
+      expect(row).toBeTruthy();
+      expect(row).toHaveProperty('id');
+      expect(row).toHaveProperty('projectId');
+      expect(row).toHaveProperty('name');
+      expect(row).toHaveProperty('type');
+      expect(row).toHaveProperty('estimatedQty');
+      expect(row).toHaveProperty('unit');
+      expect(row).toHaveProperty('unitCost');
+      expect(row).toHaveProperty('amount');
+      expect(row).toHaveProperty('actualQty');
+      expect(row).toHaveProperty('amountReceived');
+      expect(row).toHaveProperty('tradeCategory');
+      expect(Number.isNaN(parseFloat(row.amount))).toBe(false);
+      expect(Number.isNaN(parseFloat(row.actualQty))).toBe(false);
+      expect(Number.isNaN(parseFloat(row.amountReceived))).toBe(false);
+      expect(parseFloat(row.actualQty)).toBe(5);
+      expect(parseFloat(row.amountReceived)).toBe(50);
+    });
+
+    it('should include linked approved expense amount in per-item actual and variance', async () => {
+      const cost = await createBoqCost({ name: 'Expense Linked BOQ Item', estimatedQty: 100, unitCost: 10, tradeCategory: 'Electrical' });
+      await logUsage({ costId: cost.id, quantityUsed: 5 }); // usage amount = 50
+      await createAndApproveExpense({ name: 'Linked Expense', amount: 120, costId: cost.id });
+
+      const res = await request(app)
+        .get(`/api/cost/boq-report-items?projectId=${testProject.id}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('items');
+      const row = res.body.data.items.find(item => item.costId === cost.id);
+      expect(row).toBeTruthy();
+      expect(row.plannedAmount).toBe(1000);
+      expect(row.actualQty).toBe(5);
+      expect(row.usageDerivedAmount).toBe(50);
+      expect(row.linkedExpenseAmount).toBe(120);
+      expect(row.actualAmount).toBe(170);
+      expect(row.varianceAmount).toBe(830);
+      expect(row.variancePct).toBe(83);
+    });
+
+    it('should reflect read-after-write for usage and expense in boq report endpoint', async () => {
+      const cost = await createBoqCost({ name: 'Read-After-Write BOQ', estimatedQty: 10, unitCost: 20, tradeCategory: 'Plumbing' });
+      await logUsage({ costId: cost.id, quantityUsed: 2 }); // 40
+      await createAndApproveExpense({ name: 'Read-After-Write Expense', amount: 30, costId: cost.id });
+
+      const reportRes = await request(app)
+        .get(`/api/cost/boq-report-items?projectId=${testProject.id}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(reportRes.status).toBe(200);
+      const row = reportRes.body.data.items.find(item => item.costId === cost.id);
+      expect(row).toBeTruthy();
+      expect(row.actualAmount).toBe(70);
+    });
+
+    it('should return multi-item rows where per-item actuals do not collapse into one line', async () => {
+      const c1 = await createBoqCost({ name: 'Multi Item A', estimatedQty: 100, unitCost: 10, tradeCategory: 'Structural' });
+      const c2 = await createBoqCost({ name: 'Multi Item B', estimatedQty: 50, unitCost: 8, tradeCategory: 'Architectural' });
+      const c3 = await createBoqCost({ name: 'Multi Item C', estimatedQty: 30, unitCost: 5, tradeCategory: 'Fire Protection' });
+
+      await logUsage({ costId: c1.id, quantityUsed: 3 }); // 30
+      await logUsage({ costId: c2.id, quantityUsed: 4 }); // 32
+      await createAndApproveExpense({ name: 'Expense for C', amount: 25, costId: c3.id });
+
+      const reportRes = await request(app)
+        .get(`/api/cost/boq-report-items?projectId=${testProject.id}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(reportRes.status).toBe(200);
+
+      const items = reportRes.body.data.items.filter(item => [c1.id, c2.id, c3.id].includes(item.costId));
+      expect(items).toHaveLength(3);
+      const totalActual = items.reduce((sum, item) => sum + item.actualAmount, 0);
+      expect(totalActual).toBe(87);
+      expect(totalActual).not.toBe(items[0].actualAmount);
+    });
+  });
+
+  // =============================================
   // BUDGET ENDPOINTS
   // =============================================
   describe('Budget endpoints', () => {

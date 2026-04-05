@@ -32,6 +32,7 @@ router.get('/health', (req, res) => {
 
 // Get cost summary (must be before /:id route)
 router.get('/costs/summary', authenticateToken, CostController.getCostSummary);
+router.get('/boq-report-items', authenticateToken, CostController.getBOQReportItems);
 
 // Create a new cost (type: MATERIAL | LABOR | EQUIPMENT | OVERHEAD | OTHER | FUEL | FORMWORKS)
 router.post('/costs', authenticateToken, authorize('ENGINEER_AND_ABOVE'), validateCost, CostController.createCost);

@@ -145,6 +145,8 @@ ExpenseModel.belongsTo(TaskModel, { as: 'task', foreignKey: 'taskId' });
 
 CostModel.hasMany(SiteUsageModel, { as: 'siteUsage', foreignKey: 'costId' });
 SiteUsageModel.belongsTo(CostModel, { as: 'cost', foreignKey: 'costId' });
+CostModel.hasMany(ExpenseModel, { as: 'linkedExpenses', foreignKey: 'costId' });
+ExpenseModel.belongsTo(CostModel, { as: 'cost', foreignKey: 'costId' });
 
 // 3. Resource Management - Team Members
 ProjectModel.hasMany(TeamMemberModel, { as: 'teamMembers', foreignKey: 'projectId' });

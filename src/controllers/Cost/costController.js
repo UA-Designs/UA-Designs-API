@@ -1,4 +1,4 @@
-const { Cost, Project, Task, User } = require('../../models');
+const { Cost, Project, Task, User, Expense } = require('../../models');
 const { Op } = require('sequelize');
 
 const VALID_TRADE_CATEGORIES = [
@@ -9,6 +9,13 @@ const VALID_TRADE_CATEGORIES = [
   'Plumbing',
   'Fire Protection'
 ];
+
+const toNumber = (value, fallback = 0) => {
+  const parsed = parseFloat(value);
+  return Number.isNaN(parsed) ? fallback : parsed;
+};
+
+const round2 = (value) => Math.round(toNumber(value, 0) * 100) / 100;
 
 /**
  * Cost Controller
@@ -197,12 +204,32 @@ class CostController {
       });
 
       // Compute varianceStatus for each cost based on remaining percentage
+      const costIds = costs.map(cost => cost.id);
+      const linkedExpenses = costIds.length > 0
+        ? await Expense.findAll({
+            where: {
+              costId: { [Op.in]: costIds },
+              status: { [Op.in]: ['APPROVED', 'PAID'] }
+            },
+            attributes: ['costId', 'amount']
+          })
+        : [];
+
+      const expenseByCostId = linkedExpenses.reduce((acc, expense) => {
+        const key = expense.costId;
+        acc[key] = (acc[key] || 0) + toNumber(expense.amount, 0);
+        return acc;
+      }, {});
+
       const enrichedCosts = costs.map(cost => {
         const plain = cost.toJSON();
         const amount = plain.amount !== null && plain.amount !== undefined ? parseFloat(plain.amount) : null;
         const amountReceived = plain.amountReceived !== null && plain.amountReceived !== undefined
           ? parseFloat(plain.amountReceived)
           : null;
+        const linkedExpenseAmount = round2(expenseByCostId[plain.id] || 0);
+        const usageDerivedAmount = round2(amountReceived || 0);
+        const actualAmountComputed = round2(usageDerivedAmount + linkedExpenseAmount);
 
         let varianceStatus = null;
 
@@ -221,6 +248,8 @@ class CostController {
 
         return {
           ...plain,
+          linkedExpenseAmount,
+          actualAmountComputed,
           varianceStatus
         };
       });
@@ -265,6 +294,17 @@ class CostController {
         });
       }
 
+      const linkedExpenses = await Expense.findAll({
+        where: {
+          costId: id,
+          status: { [Op.in]: ['APPROVED', 'PAID'] }
+        },
+        attributes: ['amount']
+      });
+      const linkedExpenseAmount = round2(
+        linkedExpenses.reduce((sum, expense) => sum + toNumber(expense.amount, 0), 0)
+      );
+
       res.json({
         success: true,
         data: (() => {
@@ -273,6 +313,8 @@ class CostController {
           const amountReceived = plain.amountReceived !== null && plain.amountReceived !== undefined
             ? parseFloat(plain.amountReceived)
             : null;
+          const usageDerivedAmount = round2(amountReceived || 0);
+          const actualAmountComputed = round2(usageDerivedAmount + linkedExpenseAmount);
 
           let varianceStatus = null;
 
@@ -291,6 +333,8 @@ class CostController {
 
           return {
             ...plain,
+            linkedExpenseAmount,
+            actualAmountComputed,
             varianceStatus
           };
         })()
@@ -560,6 +604,102 @@ class CostController {
       res.status(500).json({
         success: false,
         message: 'Failed to fetch cost summary',
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Get BOQ report rows precomputed per item for frontend display.
+   * GET /api/cost/boq-report-items?projectId=<uuid>
+   */
+  static async getBOQReportItems(req, res) {
+    try {
+      const { projectId } = req.query;
+      if (!projectId) {
+        return res.status(400).json({
+          success: false,
+          message: 'projectId query parameter is required'
+        });
+      }
+
+      const project = await Project.findByPk(projectId);
+      if (!project) {
+        return res.status(404).json({
+          success: false,
+          message: 'Project not found'
+        });
+      }
+
+      const costs = await Cost.findAll({
+        where: { projectId },
+        order: [['date', 'DESC'], ['createdAt', 'DESC']]
+      });
+
+      const costIds = costs.map(cost => cost.id);
+      const linkedExpenses = costIds.length > 0
+        ? await Expense.findAll({
+            where: {
+              costId: { [Op.in]: costIds },
+              status: { [Op.in]: ['APPROVED', 'PAID'] }
+            },
+            attributes: ['costId', 'amount', 'id', 'status', 'name']
+          })
+        : [];
+
+      const expenseByCostId = linkedExpenses.reduce((acc, expense) => {
+        const key = expense.costId;
+        acc[key] = (acc[key] || 0) + toNumber(expense.amount, 0);
+        return acc;
+      }, {});
+
+      const rows = costs.map((cost) => {
+        const item = cost.toJSON();
+        const plannedQty = toNumber(item.estimatedQty, 0);
+        const unitCost = toNumber(item.unitCost, 0);
+        const plannedAmount = round2(toNumber(item.amount, 0));
+        const actualQty = round2(toNumber(item.actualQty, 0));
+        const usageDerivedAmount = round2(toNumber(item.amountReceived, 0));
+        const linkedExpenseAmount = round2(expenseByCostId[item.id] || 0);
+        // Formula: per-item actual = usage-derived amount + approved/paid linked expenses.
+        const actualAmount = round2(usageDerivedAmount + linkedExpenseAmount);
+        const varianceAmount = round2(plannedAmount - actualAmount);
+        const variancePct = plannedAmount > 0
+          ? round2((varianceAmount / plannedAmount) * 100)
+          : null;
+
+        return {
+          costId: item.id,
+          projectId: item.projectId,
+          name: item.name,
+          type: item.type,
+          tradeCategory: item.tradeCategory || null,
+          plannedQty,
+          unit: item.unit || null,
+          unitCost,
+          plannedAmount,
+          actualQty,
+          usageDerivedAmount,
+          linkedExpenseAmount,
+          actualAmount,
+          varianceAmount,
+          variancePct
+        };
+      });
+
+      res.json({
+        success: true,
+        data: {
+          projectId,
+          itemCount: rows.length,
+          items: rows
+        }
+      });
+    } catch (error) {
+      console.error('Get BOQ report items error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch BOQ report items',
         error: error.message
       });
     }

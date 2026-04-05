@@ -65,6 +65,14 @@ module.exports = (sequelize, DataTypes) => {
         key: 'id'
       }
     },
+    costId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'costs',
+        key: 'id'
+      }
+    },
     submittedBy: {
       type: DataTypes.UUID,
       allowNull: false,
@@ -109,6 +117,9 @@ module.exports = (sequelize, DataTypes) => {
       },
       {
         fields: ['taskId']
+      },
+      {
+        fields: ['costId']
       },
       {
         fields: ['category']

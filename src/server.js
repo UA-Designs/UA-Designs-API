@@ -732,6 +732,20 @@ if (require.main === module) {
     }
   };
 
+  // Add optional costId link on expenses for per-item BOQ actuals.
+  const ensureExpensesCostLinkMigration = async () => {
+    if (sequelize.getDialect() !== 'postgres') return;
+    try {
+      await sequelize.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS "costId" UUID REFERENCES costs(id);');
+      await sequelize.query('CREATE INDEX IF NOT EXISTS idx_expenses_cost_id ON expenses ("costId");');
+      console.log('✅ expenses costId link ensured');
+    } catch (err) {
+      if (!/already exists|does not exist/i.test(err.message)) {
+        console.warn('⚠️  expenses costId link (non-fatal):', err.message);
+      }
+    }
+  };
+
   // Make materials.projectId (or project_id) nullable so materials can be global (no project).
   const ensureMaterialsProjectIdNullable = async () => {
     if (sequelize.getDialect() !== 'postgres') return;
@@ -776,6 +790,7 @@ if (require.main === module) {
         .then(() => ensureMaterialsCreatedAtIndex())
         .then(() => ensureCostTypeEnum())
         .then(() => ensureCostsAndSiteUsageMigration())
+        .then(() => ensureExpensesCostLinkMigration())
         .then(() => console.log('✅ Database connection verified (pre-seeded)'))
     : (async () => {
         await ensureRoleEnums();
@@ -786,6 +801,7 @@ if (require.main === module) {
         await ensureMaterialsCreatedAtIndex();
         await ensureCostTypeEnum();
         await ensureCostsAndSiteUsageMigration();
+        await ensureExpensesCostLinkMigration();
 
         const autoSeed = process.env.AUTO_SEED !== 'false' && process.env.NODE_ENV !== 'production';
         if (autoSeed) {

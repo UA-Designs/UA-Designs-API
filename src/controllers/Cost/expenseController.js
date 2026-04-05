@@ -30,6 +30,7 @@ class ExpenseController {
         receiptNumber,
         projectId,
         taskId,
+        costId,
         budgetId,
         categoryId,
         notes,
@@ -75,6 +76,23 @@ class ExpenseController {
         }
       }
 
+      // Validate cost exists if costId provided
+      if (costId) {
+        const cost = await Cost.findByPk(costId);
+        if (!cost) {
+          return res.status(404).json({
+            success: false,
+            message: 'Cost not found'
+          });
+        }
+        if (String(cost.projectId) !== String(projectId)) {
+          return res.status(400).json({
+            success: false,
+            message: 'costId must belong to the provided projectId'
+          });
+        }
+      }
+
       const expense = await Expense.create({
         name,
         description,
@@ -88,6 +106,7 @@ class ExpenseController {
         receiptNumber,
         projectId,
         taskId,
+        costId,
         budgetId,
         categoryId,
         notes,
@@ -96,29 +115,31 @@ class ExpenseController {
         submittedBy: req.user?.id
       });
 
-      // Reflect logged expense in BOQ (Cost): create a cost line so it appears in BOQ
-      const costTypeMap = {
-        MATERIAL: 'MATERIAL',
-        LABOR: 'LABOR',
-        EQUIPMENT: 'EQUIPMENT',
-        OVERHEAD: 'OVERHEAD',
-        SUBCONTRACTOR: 'OTHER',
-        PERMITS: 'OTHER',
-        OTHER: 'OTHER'
-      };
-      const costType = costTypeMap[category] || 'OTHER';
-      await Cost.create({
-        name,
-        type: costType,
-        amount: parseFloat(amount),
-        currency,
-        date: new Date(date),
-        description: description || `Logged expense (${category})`,
-        projectId,
-        taskId: taskId || null,
-        budgetId: budgetId || null,
-        status: 'APPROVED'
-      });
+      // Reflect logged expense in BOQ (Cost): only create a standalone line when not explicitly linked.
+      if (!costId) {
+        const costTypeMap = {
+          MATERIAL: 'MATERIAL',
+          LABOR: 'LABOR',
+          EQUIPMENT: 'EQUIPMENT',
+          OVERHEAD: 'OVERHEAD',
+          SUBCONTRACTOR: 'OTHER',
+          PERMITS: 'OTHER',
+          OTHER: 'OTHER'
+        };
+        const costType = costTypeMap[category] || 'OTHER';
+        await Cost.create({
+          name,
+          type: costType,
+          amount: parseFloat(amount),
+          currency,
+          date: new Date(date),
+          description: description || `Logged expense (${category})`,
+          projectId,
+          taskId: taskId || null,
+          budgetId: budgetId || null,
+          status: 'APPROVED'
+        });
+      }
 
       res.status(201).json({
         success: true,
@@ -208,6 +229,11 @@ class ExpenseController {
             attributes: ['id', 'name', 'amount']
           },
           {
+            model: Cost,
+            as: 'cost',
+            attributes: ['id', 'name']
+          },
+          {
             model: User,
             as: 'submitter',
             attributes: ['id', 'firstName', 'lastName', 'email']
@@ -270,6 +296,11 @@ class ExpenseController {
             model: Task,
             as: 'task',
             attributes: ['id', 'name', 'status']
+          },
+          {
+            model: Cost,
+            as: 'cost',
+            attributes: ['id', 'name', 'projectId']
           },
           {
             model: User,
@@ -344,6 +375,22 @@ class ExpenseController {
       // Convert numeric and date fields
       if (updateData.amount) updateData.amount = parseFloat(updateData.amount);
       if (updateData.date) updateData.date = new Date(updateData.date);
+      if (Object.prototype.hasOwnProperty.call(updateData, 'costId') && updateData.costId) {
+        const linkedCost = await Cost.findByPk(updateData.costId);
+        if (!linkedCost) {
+          return res.status(404).json({
+            success: false,
+            message: 'Cost not found'
+          });
+        }
+        const targetProjectId = updateData.projectId || expense.projectId;
+        if (String(linkedCost.projectId) !== String(targetProjectId)) {
+          return res.status(400).json({
+            success: false,
+            message: 'costId must belong to the expense projectId'
+          });
+        }
+      }
 
       await expense.update(updateData);
 

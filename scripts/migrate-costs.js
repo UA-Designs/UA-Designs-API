@@ -29,6 +29,8 @@ const migrations = [
   `ALTER TABLE costs ADD COLUMN IF NOT EXISTS "actualQty" NUMERIC(10,2) DEFAULT 0`,
   `ALTER TABLE costs ADD COLUMN IF NOT EXISTS "actualAmount" NUMERIC(10,2) DEFAULT 0`,
   `ALTER TABLE costs ADD COLUMN IF NOT EXISTS "amountReceived" NUMERIC(10,2) DEFAULT 0`,
+  `ALTER TABLE expenses ADD COLUMN IF NOT EXISTS "costId" UUID REFERENCES costs(id)`,
+  `CREATE INDEX IF NOT EXISTS idx_expenses_cost_id ON expenses ("costId")`,
   // Site usage table (Postgres: CREATE TABLE IF NOT EXISTS)
   `CREATE TABLE IF NOT EXISTS site_usage (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
