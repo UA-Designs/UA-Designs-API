@@ -512,6 +512,166 @@ describe('Cost Management API', () => {
   });
 
   // =============================================
+  // SITE USAGE ENDPOINTS
+  // =============================================
+  describe('Site usage endpoints', () => {
+    const createUsageCost = async (unitCost = 10) => {
+      const res = await request(app)
+        .post('/api/cost/costs')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: 'Usage Test Cost',
+          type: 'OTHER',
+          estimatedQty: 100,
+          unitCost,
+          unit: 'Lot',
+          date: new Date().toISOString(),
+          projectId: testProject.id
+        });
+      expect(res.status).toBe(201);
+      return res.body.data;
+    };
+
+    it('should persist usage and reflect aggregates immediately in GET /api/cost/costs', async () => {
+      const cost = await createUsageCost(10);
+
+      const usageRes = await request(app)
+        .post('/api/cost/site-usage')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          projectId: testProject.id,
+          costId: cost.id,
+          quantityUsed: 5,
+          date: new Date().toISOString(),
+          notes: 'Daily usage log'
+        });
+
+      expect(usageRes.status).toBe(201);
+      expect(usageRes.body.success).toBe(true);
+      expect(usageRes.body.data.aggregates.actualQty).toBe(5);
+      expect(usageRes.body.data.aggregates.amountReceived).toBe(50);
+
+      const listRes = await request(app)
+        .get(`/api/cost/costs?projectId=${testProject.id}&limit=100`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(listRes.status).toBe(200);
+      const updated = listRes.body.data.costs.find(item => item.id === cost.id);
+      expect(updated).toBeTruthy();
+      expect(parseFloat(updated.actualQty)).toBe(5);
+      expect(parseFloat(updated.amountReceived)).toBe(50);
+      expect(updated).toHaveProperty('unitCost');
+      expect(updated).toHaveProperty('projectId');
+    });
+
+    it('should accumulate quantity across multiple logs for the same cost', async () => {
+      const cost = await createUsageCost(12);
+
+      const first = await request(app)
+        .post('/api/cost/site-usage')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          projectId: testProject.id,
+          costId: cost.id,
+          quantityUsed: 5,
+          date: new Date().toISOString()
+        });
+      expect(first.status).toBe(201);
+
+      const second = await request(app)
+        .post('/api/cost/site-usage')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          projectId: testProject.id,
+          costId: cost.id,
+          quantityUsed: 3,
+          date: new Date().toISOString()
+        });
+      expect(second.status).toBe(201);
+      expect(second.body.data.aggregates.actualQty).toBe(8);
+      expect(second.body.data.aggregates.amountReceived).toBe(96);
+
+      const byIdRes = await request(app)
+        .get(`/api/cost/costs/${cost.id}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(byIdRes.status).toBe(200);
+      expect(parseFloat(byIdRes.body.data.actualQty)).toBe(8);
+      expect(parseFloat(byIdRes.body.data.amountReceived)).toBe(96);
+    });
+
+    it('should reject negative quantityUsed', async () => {
+      const cost = await createUsageCost(10);
+      const res = await request(app)
+        .post('/api/cost/site-usage')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          projectId: testProject.id,
+          costId: cost.id,
+          quantityUsed: -1,
+          date: new Date().toISOString()
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain('non-negative');
+    });
+
+    it('should return 404 for invalid projectId', async () => {
+      const cost = await createUsageCost(10);
+      const res = await request(app)
+        .post('/api/cost/site-usage')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          projectId: '00000000-0000-0000-0000-000000000000',
+          costId: cost.id,
+          quantityUsed: 1,
+          date: new Date().toISOString()
+        });
+
+      expect(res.status).toBe(404);
+      expect(res.body.message).toContain('Project not found');
+    });
+
+    it('should return 404 for invalid costId', async () => {
+      const res = await request(app)
+        .post('/api/cost/site-usage')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          projectId: testProject.id,
+          costId: '00000000-0000-0000-0000-000000000000',
+          quantityUsed: 1,
+          date: new Date().toISOString()
+        });
+
+      expect(res.status).toBe(404);
+      expect(res.body.message).toContain('Cost not found');
+    });
+
+    it('should expose usage audit trail by project and cost filters', async () => {
+      const cost = await createUsageCost(10);
+      const usageRes = await request(app)
+        .post('/api/cost/site-usage')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          projectId: testProject.id,
+          costId: cost.id,
+          quantityUsed: 2,
+          date: new Date().toISOString(),
+          notes: 'Audit trail entry'
+        });
+      expect(usageRes.status).toBe(201);
+
+      const getRes = await request(app)
+        .get(`/api/cost/site-usage?projectId=${testProject.id}&costId=${cost.id}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(getRes.status).toBe(200);
+      expect(getRes.body.success).toBe(true);
+      expect(Array.isArray(getRes.body.data)).toBe(true);
+      expect(getRes.body.data.some(item => item.costId === cost.id)).toBe(true);
+    });
+  });
+
+  // =============================================
   // BUDGET ENDPOINTS
   // =============================================
   describe('Budget endpoints', () => {

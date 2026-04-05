@@ -1,4 +1,4 @@
-const { SiteUsage, Cost, Project } = require('../../models');
+const { SiteUsage, Cost, Project, sequelize } = require('../../models');
 
 class SiteUsageController {
   /**
@@ -24,52 +24,76 @@ class SiteUsageController {
         });
       }
 
-      const project = await Project.findByPk(projectId);
-      if (!project) {
-        return res.status(404).json({
-          success: false,
-          message: 'Project not found'
+      const result = await sequelize.transaction(async (transaction) => {
+        const project = await Project.findByPk(projectId, { transaction });
+        if (!project) {
+          const error = new Error('Project not found');
+          error.statusCode = 404;
+          throw error;
+        }
+
+        // Lock cost row so usage writes for the same BOQ line serialize safely.
+        const cost = await Cost.findByPk(costId, {
+          transaction,
+          lock: transaction.LOCK.UPDATE
         });
-      }
+        if (!cost) {
+          const error = new Error('Cost not found');
+          error.statusCode = 404;
+          throw error;
+        }
 
-      const cost = await Cost.findByPk(costId);
-      if (!cost) {
-        return res.status(404).json({
-          success: false,
-          message: 'Cost not found'
-        });
-      }
+        if (String(cost.projectId) !== String(projectId)) {
+          const error = new Error('Cost does not belong to the provided projectId');
+          error.statusCode = 400;
+          throw error;
+        }
 
-      const usage = await SiteUsage.create({
-        projectId,
-        costId,
-        date: new Date(date),
-        quantityUsed: qty,
-        notes: notes || null
-      });
+        const usage = await SiteUsage.create({
+          projectId,
+          costId,
+          date: new Date(date),
+          quantityUsed: qty,
+          notes: notes || null
+        }, { transaction });
 
-      // Recompute aggregates for this cost
-      const totalQty = parseFloat(await SiteUsage.sum('quantityUsed', { where: { costId } }) || 0);
-      const unitCost = cost.unitCost ? parseFloat(cost.unitCost) : 0;
-      const amountReceived = unitCost > 0 ? totalQty * unitCost : 0;
+        // Recompute from source-of-truth logs so retries/concurrent writes stay accurate.
+        const totalQty = parseFloat(await SiteUsage.sum('quantityUsed', {
+          where: { costId },
+          transaction
+        }) || 0);
+        const unitCost = cost.unitCost ? parseFloat(cost.unitCost) : 0;
+        const amountReceived = unitCost > 0 ? totalQty * unitCost : 0;
 
-      await cost.update({
-        actualQty: totalQty,
-        amountReceived
+        await cost.update({
+          actualQty: totalQty,
+          amountReceived
+        }, { transaction });
+
+        return {
+          usage,
+          aggregates: {
+            actualQty: totalQty,
+            amountReceived
+          }
+        };
       });
 
       res.status(201).json({
         success: true,
         message: 'Site usage created successfully',
         data: {
-          usage,
-          aggregates: {
-            actualQty: totalQty,
-            amountReceived
-          }
+          usage: result.usage,
+          aggregates: result.aggregates
         }
       });
     } catch (error) {
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({
+          success: false,
+          message: error.message
+        });
+      }
       console.error('Create site usage error:', error);
       res.status(500).json({
         success: false,
