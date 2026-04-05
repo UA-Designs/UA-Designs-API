@@ -119,9 +119,6 @@ module.exports = (sequelize, DataTypes) => {
         fields: ['taskId']
       },
       {
-        fields: ['costId']
-      },
-      {
         fields: ['category']
       },
       {
