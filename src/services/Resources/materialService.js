@@ -15,6 +15,10 @@ class MaterialService {
       sortOrder = 'DESC'
     } = filters;
 
+    const allowedSortFields = new Set(['name', 'createdAt']);
+    const normalizedSortBy = allowedSortFields.has(sortBy) ? sortBy : 'createdAt';
+    const normalizedSortOrder = String(sortOrder).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
     const where = {};
     if (projectId) where.projectId = projectId;
     if (status) where.status = status;
@@ -40,7 +44,7 @@ class MaterialService {
       ],
       limit: parseInt(limit),
       offset,
-      order: [[sortBy, sortOrder.toUpperCase()]],
+      order: [[normalizedSortBy, normalizedSortOrder]],
       distinct: true
     });
 

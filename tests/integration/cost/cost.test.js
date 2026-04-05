@@ -115,6 +115,56 @@ describe('Cost Management API', () => {
         expect(res.body.data.type).toBe('LABOR');
       });
 
+      it('should create and persist BOQ unit "Lot"', async () => {
+        const res = await request(app)
+          .post('/api/cost/costs')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({
+            name: 'Site Mobilization',
+            type: 'OTHER',
+            estimatedQty: 1,
+            unitCost: 25000,
+            unit: 'Lot',
+            date: new Date().toISOString(),
+            projectId: testProject.id
+          });
+
+        expect(res.status).toBe(201);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.unit).toBe('Lot');
+        expect(parseFloat(res.body.data.amount)).toBe(25000);
+
+        const saved = await Cost.findByPk(res.body.data.id);
+        expect(saved).toBeTruthy();
+        expect(saved.unit).toBe('Lot');
+      });
+
+      it('should create and persist BOQ unit "Lump Sum"', async () => {
+        const res = await request(app)
+          .post('/api/cost/costs')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({
+            name: 'Temporary Facilities',
+            type: 'OTHER',
+            estimatedQty: 1,
+            unitCost: 80000,
+            unit: 'Lump Sum',
+            date: new Date().toISOString(),
+            projectId: testProject.id
+          });
+
+        expect(res.status).toBe(201);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.unit).toBe('Lump Sum');
+        expect(parseFloat(res.body.data.amount)).toBe(80000);
+
+        const getRes = await request(app)
+          .get(`/api/cost/costs/${res.body.data.id}`)
+          .set('Authorization', `Bearer ${adminToken}`);
+        expect(getRes.status).toBe(200);
+        expect(getRes.body.data.unit).toBe('Lump Sum');
+      });
+
       it('should return 400 for missing required fields', async () => {
         const res = await request(app)
           .post('/api/cost/costs')
@@ -151,6 +201,7 @@ describe('Cost Management API', () => {
             type: 'EQUIPMENT',
             amount: 3000,
             date: new Date().toISOString(),
+            projectId: testProject.id,
             taskId: '00000000-0000-0000-0000-000000000000'
           });
 
@@ -277,6 +328,35 @@ describe('Cost Management API', () => {
         expect(res.status).toBe(404);
       });
 
+      it('should update existing cost unit to "Lump Sum" and persist it', async () => {
+        const createRes = await request(app)
+          .post('/api/cost/costs')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({
+            name: 'Unit Update Seed Cost',
+            type: 'OTHER',
+            amount: 12000,
+            unit: 'Lot',
+            date: new Date().toISOString(),
+            projectId: testProject.id
+          });
+        expect(createRes.status).toBe(201);
+
+        const costId = createRes.body.data.id;
+
+        const res = await request(app)
+          .put(`/api/cost/costs/${costId}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({ unit: 'Lump Sum' });
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        expect(res.body.data.unit).toBe('Lump Sum');
+
+        const saved = await Cost.findByPk(costId);
+        expect(saved.unit).toBe('Lump Sum');
+      });
+
       it('should prevent non-admin from updating approved costs', async () => {
         // First approve the cost
         await Cost.update({ status: 'APPROVED' }, { where: { id: createdCostId } });
@@ -306,6 +386,16 @@ describe('Cost Management API', () => {
 
         // Reset status
         await Cost.update({ status: 'PENDING' }, { where: { id: createdCostId } });
+      });
+    });
+
+    describe('Cost schema checks', () => {
+      it('should have a persisted unit column able to store "Lump Sum"', async () => {
+        expect(Cost.rawAttributes.unit).toBeDefined();
+        expect(Cost.rawAttributes.unit.allowNull).toBe(true);
+        expect(Cost.rawAttributes.unit.type.toString()).toContain('VARCHAR');
+        expect(Cost.rawAttributes.unit.type.toString()).toContain('255');
+        expect('Lump Sum'.length).toBeLessThanOrEqual(255);
       });
     });
 

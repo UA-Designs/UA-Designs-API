@@ -1,6 +1,6 @@
 const request = require('supertest');
 const app = require('../../../src/server');
-const { sequelize, User, Project } = require('../../../src/models');
+const { sequelize, User, Project, Material } = require('../../../src/models');
 const {
   generateAuthToken,
   createTestUser,
@@ -119,6 +119,122 @@ describe('Resource Management API', () => {
         response.body.data.forEach(item => {
           expect(item.projectId).toBe(testProject.id);
         });
+      });
+
+      it('should include createdAt for each material', async () => {
+        const seedRes = await request(app)
+          .post('/api/resources/materials')
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({
+            name: 'CreatedAt Seed Material',
+            unit: 'bag',
+            unitCost: 10,
+            quantity: 1,
+            projectId: testProject.id
+          });
+        expect(seedRes.status).toBe(201);
+
+        const response = await request(app)
+          .get(`/api/resources/materials?projectId=${testProject.id}`)
+          .set('Authorization', `Bearer ${authToken}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data.length).toBeGreaterThan(0);
+        response.body.data.forEach(item => {
+          expect(item).toHaveProperty('id');
+          expect(item).toHaveProperty('name');
+          expect(item).toHaveProperty('createdAt');
+          expect(new Date(item.createdAt).toString()).not.toBe('Invalid Date');
+        });
+      });
+
+      it('should sort materials by name asc (A-Z)', async () => {
+        const sortProject = await Project.create({
+          ...createTestProject({ name: 'Material Sort Name Project', projectNumber: 'UA-SORT-NAME-001' }),
+          projectManagerId: testUser.id
+        });
+
+        const nameCases = ['Zulu Gravel', 'Alpha Cement', 'Beta Sand'];
+        for (const name of nameCases) {
+          // eslint-disable-next-line no-await-in-loop
+          await request(app)
+            .post('/api/resources/materials')
+            .set('Authorization', `Bearer ${authToken}`)
+            .send({
+              name,
+              unit: 'bag',
+              unitCost: 10,
+              quantity: 1,
+              projectId: sortProject.id
+            });
+        }
+
+        const response = await request(app)
+          .get(`/api/resources/materials?projectId=${sortProject.id}&sortBy=name&sortOrder=asc&limit=20`)
+          .set('Authorization', `Bearer ${authToken}`);
+
+        expect(response.status).toBe(200);
+        const names = response.body.data.map(item => item.name);
+        expect(names).toEqual(['Alpha Cement', 'Beta Sand', 'Zulu Gravel']);
+      });
+
+      it('should sort materials by createdAt desc (newest first)', async () => {
+        const sortProject = await Project.create({
+          ...createTestProject({ name: 'Material Sort Date Project', projectNumber: 'UA-SORT-DATE-001' }),
+          projectManagerId: testUser.id
+        });
+
+        const first = await request(app)
+          .post('/api/resources/materials')
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({
+            name: 'Oldest Material',
+            unit: 'bag',
+            unitCost: 10,
+            quantity: 1,
+            projectId: sortProject.id
+          });
+        const second = await request(app)
+          .post('/api/resources/materials')
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({
+            name: 'Middle Material',
+            unit: 'bag',
+            unitCost: 10,
+            quantity: 1,
+            projectId: sortProject.id
+          });
+        const third = await request(app)
+          .post('/api/resources/materials')
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({
+            name: 'Newest Material',
+            unit: 'bag',
+            unitCost: 10,
+            quantity: 1,
+            projectId: sortProject.id
+          });
+
+        await Material.update(
+          { createdAt: new Date('2024-01-01T00:00:00.000Z') },
+          { where: { id: first.body.data.id }, silent: true }
+        );
+        await Material.update(
+          { createdAt: new Date('2024-01-02T00:00:00.000Z') },
+          { where: { id: second.body.data.id }, silent: true }
+        );
+        await Material.update(
+          { createdAt: new Date('2024-01-03T00:00:00.000Z') },
+          { where: { id: third.body.data.id }, silent: true }
+        );
+
+        const response = await request(app)
+          .get(`/api/resources/materials?projectId=${sortProject.id}&sortBy=createdAt&sortOrder=desc&limit=20`)
+          .set('Authorization', `Bearer ${authToken}`);
+
+        expect(response.status).toBe(200);
+        const names = response.body.data.map(item => item.name);
+        expect(names).toEqual(['Newest Material', 'Middle Material', 'Oldest Material']);
       });
 
       it('should return 401 without auth', async () => {

@@ -60,7 +60,13 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     tableName: 'materials',
     timestamps: true,
-    paranoid: true
+    paranoid: true,
+    indexes: [
+      {
+        name: 'idx_materials_created_at',
+        fields: ['createdAt']
+      }
+    ]
   });
 
   return Material;

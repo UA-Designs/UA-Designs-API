@@ -751,6 +751,19 @@ if (require.main === module) {
     }
   };
 
+  // Add index for frequently sorted materials list by creation time.
+  const ensureMaterialsCreatedAtIndex = async () => {
+    if (sequelize.getDialect() !== 'postgres') return;
+    try {
+      await sequelize.query('CREATE INDEX IF NOT EXISTS idx_materials_created_at ON materials ("createdAt");');
+      console.log('✅ materials createdAt index ensured');
+    } catch (err) {
+      if (!/does not exist/i.test(err.message)) {
+        console.warn('⚠️  materials createdAt index (non-fatal):', err.message);
+      }
+    }
+  };
+
   // When SEEDED=true the DB was already set up by a seed script
   // (e.g. dev:clean or dev:demo), so skip force-sync and auto-seed.
   const preSeeded = process.env.SEEDED === 'true';
@@ -759,6 +772,7 @@ if (require.main === module) {
     ? sequelize.authenticate()
         .then(() => ensureRoleEnums())
         .then(() => ensureMaterialsProjectIdNullable())
+        .then(() => ensureMaterialsCreatedAtIndex())
         .then(() => ensureCostTypeEnum())
         .then(() => ensureCostsAndSiteUsageMigration())
         .then(() => console.log('✅ Database connection verified (pre-seeded)'))
@@ -768,6 +782,7 @@ if (require.main === module) {
         await sequelize.sync({ force: forceSync });
         console.log('✅ Database synced');
         await ensureMaterialsProjectIdNullable();
+        await ensureMaterialsCreatedAtIndex();
         await ensureCostTypeEnum();
         await ensureCostsAndSiteUsageMigration();
 
