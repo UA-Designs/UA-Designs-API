@@ -1,7 +1,59 @@
 const { Op } = require('sequelize');
-const { Risk, RiskMitigation, RiskCategory, Project, User, Task } = require('../../models');
+const { Risk, RiskMitigation, RiskCategory, Project, User, Task, sequelize } = require('../../models');
 
 class RiskService {
+  getRiskIncludes() {
+    return [
+      {
+        model: RiskCategory,
+        as: 'riskCategory',
+        attributes: ['id', 'name', 'color']
+      },
+      {
+        model: User,
+        as: 'riskOwner',
+        attributes: ['id', 'firstName', 'lastName', 'email']
+      },
+      {
+        model: User,
+        as: 'identifier',
+        attributes: ['id', 'firstName', 'lastName', 'email']
+      },
+      {
+        model: Task,
+        as: 'linkedTasks',
+        attributes: ['id', 'name', 'projectId', 'status', 'startDate', 'endDate', 'plannedStartDate', 'plannedEndDate'],
+        through: { attributes: ['delayDays'] },
+        required: false
+      }
+    ];
+  }
+
+  async validateLinkedTasks(projectId, linkedTaskIds, transaction) {
+    if (!Array.isArray(linkedTaskIds)) return [];
+    if (linkedTaskIds.length === 0) return [];
+
+    const uniqueTaskIds = [...new Set(linkedTaskIds)];
+    const tasks = await Task.findAll({
+      where: {
+        id: { [Op.in]: uniqueTaskIds }
+      },
+      attributes: ['id', 'projectId'],
+      transaction
+    });
+
+    if (tasks.length !== uniqueTaskIds.length) {
+      throw new Error('One or more linkedTaskIds do not exist');
+    }
+
+    const crossProjectTask = tasks.find(task => task.projectId !== projectId);
+    if (crossProjectTask) {
+      throw new Error('All linkedTaskIds must belong to the same project as the risk');
+    }
+
+    return tasks;
+  }
+
   resolveDelayDays(risk) {
     const explicit = Number(risk.delayDays);
     if (Number.isFinite(explicit) && explicit >= 0) {
@@ -71,23 +123,7 @@ class RiskService {
 
     const result = await Risk.findAndCountAll({
       where,
-      include: [
-        {
-          model: RiskCategory,
-          as: 'riskCategory',
-          attributes: ['id', 'name', 'color']
-        },
-        {
-          model: User,
-          as: 'riskOwner',
-          attributes: ['id', 'firstName', 'lastName', 'email']
-        },
-        {
-          model: User,
-          as: 'identifier',
-          attributes: ['id', 'firstName', 'lastName', 'email']
-        }
-      ],
+      include: this.getRiskIncludes(),
       limit: parseInt(limit),
       offset,
       order: [[sortBy, sortOrder.toUpperCase()]],
@@ -117,6 +153,11 @@ class RiskService {
           ]
         },
         {
+          model: User,
+          as: 'escalatee',
+          attributes: ['id', 'firstName', 'lastName', 'email']
+        },
+        {
           model: RiskCategory,
           as: 'riskCategory',
           attributes: ['id', 'name', 'color']
@@ -132,9 +173,11 @@ class RiskService {
           attributes: ['id', 'firstName', 'lastName', 'email']
         },
         {
-          model: User,
-          as: 'escalatee',
-          attributes: ['id', 'firstName', 'lastName', 'email']
+          model: Task,
+          as: 'linkedTasks',
+          attributes: ['id', 'name', 'projectId', 'status', 'startDate', 'endDate', 'plannedStartDate', 'plannedEndDate'],
+          through: { attributes: ['delayDays'] },
+          required: false
         }
       ]
     });
@@ -144,15 +187,36 @@ class RiskService {
   async create(data) {
     const riskScore = this.calculateRiskScore(data.probability, data.impact);
     const severity = data.severity || this.assignSeverity(riskScore);
+    const linkedTaskIds = Array.isArray(data.linkedTaskIds) ? data.linkedTaskIds : undefined;
+    const payload = { ...data };
+    delete payload.linkedTaskIds;
 
-    const risk = await Risk.create({
-      ...data,
-      riskScore,
-      severity,
-      identifiedDate: data.identifiedDate || new Date()
+    if (payload.scheduleImpactDays === undefined) {
+      payload.scheduleImpactDays = payload.delayDays !== undefined ? payload.delayDays : 0;
+    }
+    if (Number(payload.scheduleImpactDays) < 0) {
+      throw new Error('scheduleImpactDays must be a non-negative number');
+    }
+    if (!payload.impactType) {
+      payload.impactType = payload.scheduleImpactDays > 0 ? 'DELAY' : 'NONE';
+    }
+
+    const createdRisk = await sequelize.transaction(async (transaction) => {
+      const linkedTasks = await this.validateLinkedTasks(payload.projectId, linkedTaskIds, transaction);
+      const risk = await Risk.create({
+        ...payload,
+        riskScore,
+        severity,
+        identifiedDate: payload.identifiedDate || new Date()
+      }, { transaction });
+
+      if (linkedTasks.length > 0) {
+        await risk.setLinkedTasks(linkedTasks, { transaction });
+      }
+      return risk;
     });
 
-    return this.getById(risk.id);
+    return this.getById(createdRisk.id);
   }
 
   async update(id, data) {
@@ -160,6 +224,8 @@ class RiskService {
     if (!risk) return null;
 
     const updateData = { ...data };
+    const linkedTaskIds = Object.prototype.hasOwnProperty.call(data, 'linkedTaskIds') ? data.linkedTaskIds : undefined;
+    delete updateData.linkedTaskIds;
 
     // Recalculate score and severity if probability or impact changed
     const newProbability = data.probability !== undefined ? data.probability : risk.probability;
@@ -172,7 +238,23 @@ class RiskService {
       }
     }
 
-    await risk.update(updateData);
+    if (updateData.scheduleImpactDays === undefined && updateData.delayDays !== undefined) {
+      updateData.scheduleImpactDays = updateData.delayDays;
+    }
+    if (updateData.scheduleImpactDays !== undefined && Number(updateData.scheduleImpactDays) < 0) {
+      throw new Error('scheduleImpactDays must be a non-negative number');
+    }
+    if (updateData.scheduleImpactDays !== undefined && updateData.impactType === undefined) {
+      updateData.impactType = updateData.scheduleImpactDays > 0 ? 'DELAY' : 'NONE';
+    }
+
+    await sequelize.transaction(async (transaction) => {
+      if (linkedTaskIds !== undefined) {
+        const linkedTasks = await this.validateLinkedTasks(risk.projectId, linkedTaskIds, transaction);
+        await risk.setLinkedTasks(linkedTasks, { transaction });
+      }
+      await risk.update(updateData, { transaction });
+    });
     return this.getById(risk.id);
   }
 
@@ -401,7 +483,25 @@ class RiskService {
   }
 
   async getScheduleImpact(projectId) {
-    const [risks, tasks] = await Promise.all([
+    const [tasks, openRisks] = await Promise.all([
+      Task.findAll({
+        where: { projectId },
+        attributes: ['id', 'name', 'plannedStartDate', 'plannedEndDate', 'startDate', 'endDate', 'actualEndDate'],
+        include: [
+          {
+            model: Risk,
+            as: 'linkedRisks',
+            required: false,
+            through: { attributes: [] },
+            where: {
+              projectId,
+              status: { [Op.ne]: 'CLOSED' },
+              impactType: 'DELAY'
+            },
+            attributes: ['id', 'title', 'status', 'scheduleImpactDays', 'delayDays']
+          }
+        ]
+      }),
       Risk.findAll({
         where: {
           projectId,
@@ -411,55 +511,91 @@ class RiskService {
           {
             model: RiskCategory,
             as: 'riskCategory',
-            attributes: ['id', 'name', 'color']
+            attributes: ['id', 'name']
+          },
+          {
+            model: Task,
+            as: 'linkedTasks',
+            attributes: ['id'],
+            through: { attributes: [] },
+            required: false
           }
         ],
-        order: [['createdAt', 'DESC']]
-      }),
-      Task.findAll({
-        where: { projectId },
-        attributes: ['id', 'name', 'plannedEndDate', 'endDate', 'actualEndDate']
+        attributes: ['id', 'title', 'status', 'scheduleImpactDays', 'delayDays', 'impactType']
       })
     ]);
 
-    const scheduleRisks = risks.filter(risk => this.isScheduleRisk(risk));
-    const includedRisks = scheduleRisks.map(risk => {
-      const resolved = this.resolveDelayDays(risk);
-      return {
-        id: risk.id,
-        title: risk.title,
-        status: risk.status,
-        category: risk.riskCategory?.name || null,
-        delayDays: resolved.delayDays,
-        derivedDelay: resolved.derivedFromSeverity
-      };
-    });
-    const totalDelayDays = includedRisks.reduce((sum, risk) => sum + risk.delayDays, 0);
+    const includedRiskMap = new Map();
+    let totalDelayDays = 0;
 
     let baselineFinishDate = null;
+    let adjustedFinishDate = null;
     for (const task of tasks) {
-      const candidate = task.plannedEndDate || task.endDate || task.actualEndDate;
-      if (!candidate) continue;
-      const candidateDate = new Date(candidate);
+      const baseEnd = task.plannedEndDate || task.endDate || task.actualEndDate;
+      if (!baseEnd) continue;
+      const baseDate = new Date(baseEnd);
+
+      const taskRiskDelay = (task.linkedRisks || []).reduce((sum, risk) => {
+        const delay = Number.isFinite(Number(risk.scheduleImpactDays))
+          ? Number(risk.scheduleImpactDays)
+          : Number(risk.delayDays) || 0;
+        if (!includedRiskMap.has(risk.id)) {
+          includedRiskMap.set(risk.id, {
+            id: risk.id,
+            title: risk.title,
+            status: risk.status,
+            delayDays: delay
+          });
+        }
+        return sum + delay;
+      }, 0);
+      totalDelayDays += taskRiskDelay;
+
+      const adjustedDate = new Date(baseDate);
+      adjustedDate.setUTCDate(adjustedDate.getUTCDate() + taskRiskDelay);
+
+      const candidateDate = baseDate;
       if (!baselineFinishDate || candidateDate > baselineFinishDate) {
         baselineFinishDate = candidateDate;
       }
+      if (!adjustedFinishDate || adjustedDate > adjustedFinishDate) {
+        adjustedFinishDate = adjustedDate;
+      }
     }
 
-    let adjustedFinishDate = null;
-    if (baselineFinishDate) {
-      adjustedFinishDate = new Date(baselineFinishDate);
-      adjustedFinishDate.setUTCDate(adjustedFinishDate.getUTCDate() + totalDelayDays);
-    }
+    // Backward-compatible fallback for existing schedule-category risks without task links.
+    openRisks
+      .filter((risk) => this.isScheduleRisk(risk) && (!risk.linkedTasks || risk.linkedTasks.length === 0))
+      .forEach((risk) => {
+        if (includedRiskMap.has(risk.id)) return;
+        const delay = Number.isFinite(Number(risk.scheduleImpactDays))
+          ? Number(risk.scheduleImpactDays)
+          : Number(risk.delayDays) || 0;
+        includedRiskMap.set(risk.id, {
+          id: risk.id,
+          title: risk.title,
+          status: risk.status,
+          delayDays: delay
+        });
+        totalDelayDays += delay;
+        if (baselineFinishDate) {
+          const fallbackAdjusted = new Date(baselineFinishDate);
+          fallbackAdjusted.setUTCDate(fallbackAdjusted.getUTCDate() + delay);
+          if (!adjustedFinishDate || fallbackAdjusted > adjustedFinishDate) {
+            adjustedFinishDate = fallbackAdjusted;
+          }
+        }
+      });
 
+    const includedRisks = Array.from(includedRiskMap.values());
     return {
       projectId,
       baselineFinishDate: baselineFinishDate ? baselineFinishDate.toISOString() : null,
       adjustedFinishDate: adjustedFinishDate ? adjustedFinishDate.toISOString() : null,
       totalDelayDays,
       includedRiskCount: includedRisks.length,
-      consideredOpenRisks: risks.length,
-      delayComputationStrategy: 'Use delayDays when present, fallback to severity mapping',
+      consideredOpenRisks: includedRisks.length,
+      delayComputationStrategy: 'adjustedTaskEnd = originalEnd + sum(active linked risk scheduleImpactDays)',
       includedRisks
     };
   }

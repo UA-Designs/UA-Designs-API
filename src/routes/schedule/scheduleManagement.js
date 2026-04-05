@@ -3,6 +3,7 @@ const { Task, TaskDependency, Project, User } = require('../../models');
 const { authenticateToken } = require('../../middleware/auth');
 const { authorize } = require('../../middleware/authorize');
 const taskController = require('../../controllers/Schedule/taskController');
+const taskService = require('../../services/Schedule/taskService');
 const { Op } = require('sequelize');
 const router = express.Router();
 
@@ -109,6 +110,7 @@ router.delete('/dependencies/:id', authenticateToken, authorize('MANAGER_AND_ABO
 
 // Get critical path for project
 router.get('/projects/:projectId/critical-path', authenticateToken, taskController.getCriticalPath);
+router.get('/projects/:projectId/risk-adjusted-tasks', authenticateToken, taskController.getTasks);
 
 // ==================== SCHEDULE VISUALIZATION ROUTES ====================
 
@@ -138,6 +140,7 @@ router.get('/projects/:projectId/schedule', authenticateToken, async (req, res) 
       ],
       order: [['startDate', 'ASC']]
     });
+    const riskAdjustment = await taskService.calculateTaskRiskAdjustments(projectId, tasks.map(task => task.id));
 
     const scheduleData = tasks.map(task => ({
       id: task.id,
@@ -157,6 +160,11 @@ router.get('/projects/:projectId/schedule', authenticateToken, async (req, res) 
       completed_at: toIsoOrNull(task.actualEndDate),
       completionDelayDays: diffInDays(task.actualEndDate, task.plannedEndDate || task.endDate),
       completionDays: diffInDays(task.actualEndDate, task.actualStartDate),
+      riskDelayDays: Number(riskAdjustment.taskAdjustments[task.id]?.riskDelayDays || 0),
+      adjustedStartDate: riskAdjustment.taskAdjustments[task.id]?.adjustedStartDate || null,
+      adjustedEndDate: riskAdjustment.taskAdjustments[task.id]?.adjustedEndDate || null,
+      hasScheduleRisk: Boolean(riskAdjustment.taskAdjustments[task.id]?.hasScheduleRisk),
+      linkedRiskIds: riskAdjustment.taskAdjustments[task.id]?.linkedRiskIds || [],
       duration: task.duration,
       assignedTo: task.assignedUser ? `${task.assignedUser.firstName} ${task.assignedUser.lastName}` : 'Unassigned',
       isCritical: task.isCritical,
@@ -175,7 +183,13 @@ router.get('/projects/:projectId/schedule', authenticateToken, async (req, res) 
         criticalPath: scheduleData.filter(task => task.isCritical),
         delayedTasks: scheduleData.filter(task => {
           return task.status !== 'COMPLETED' && task.endDate && new Date() > new Date(task.endDate);
-        })
+        }),
+        forecast: {
+          baselineFinishDate: riskAdjustment.baselineForecastEndDate,
+          riskAdjustedFinishDate: riskAdjustment.riskAdjustedForecastEndDate,
+          totalProjectRiskDelayDays: riskAdjustment.totalProjectRiskDelayDays,
+          formula: riskAdjustment.adjustmentFormula
+        }
       }
     });
   } catch (error) {

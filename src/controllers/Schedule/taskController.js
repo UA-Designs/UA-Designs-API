@@ -19,11 +19,17 @@ const normalizeTaskPayload = (payload = {}) => {
 const serializeTask = (taskLike) => {
   const task = typeof taskLike?.toJSON === 'function' ? taskLike.toJSON() : { ...taskLike };
   const completedAt = task.actualEndDate || null;
+  const linkedRiskIds = Array.isArray(task.linkedRiskIds) ? task.linkedRiskIds : [];
   return {
     ...task,
     actual_end_date: completedAt,
     completedAt,
-    completed_at: completedAt
+    completed_at: completedAt,
+    riskDelayDays: Number(task.riskDelayDays || 0),
+    adjustedStartDate: task.adjustedStartDate || null,
+    adjustedEndDate: task.adjustedEndDate || null,
+    hasScheduleRisk: Boolean(task.hasScheduleRisk),
+    linkedRiskIds
   };
 };
 
@@ -121,9 +127,12 @@ class TaskController {
         });
       }
 
+      const riskAdjustment = await taskService.calculateTaskRiskAdjustments(task.projectId, [task.id]);
+      const taskWithRiskData = taskService.mergeTaskWithRiskAdjustment(task, riskAdjustment.taskAdjustments);
+
       res.json({
         success: true,
-        data: { task: serializeTask(task) }
+        data: { task: serializeTask(taskWithRiskData) }
       });
     } catch (error) {
       console.error('Get task error:', error);

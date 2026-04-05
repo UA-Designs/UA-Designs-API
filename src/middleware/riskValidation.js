@@ -18,6 +18,7 @@ const handleValidationErrors = (req, res, next) => {
 const VALID_STATUSES = ['IDENTIFIED', 'ANALYZED', 'MITIGATING', 'MONITORING', 'CLOSED', 'ESCALATED'];
 const VALID_SEVERITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 const VALID_RESPONSE_STRATEGIES = ['AVOID', 'MITIGATE', 'TRANSFER', 'ACCEPT'];
+const VALID_IMPACT_TYPES = ['DELAY', 'NONE'];
 const VALID_MITIGATION_STATUSES = ['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
 const VALID_EFFECTIVENESS = ['LOW', 'MEDIUM', 'HIGH'];
 
@@ -40,6 +41,24 @@ const validateCreateRisk = [
   body(['delayDays', 'scheduleDelayDays', 'impactDays', 'delay_days'])
     .optional()
     .isInt({ min: 0 }).withMessage('Delay days must be a non-negative integer'),
+  body(['scheduleImpactDays', 'schedule_impact_days'])
+    .optional()
+    .isInt({ min: 0 }).withMessage('scheduleImpactDays must be a non-negative integer'),
+  body('impactType')
+    .optional()
+    .isIn(VALID_IMPACT_TYPES).withMessage(`impactType must be one of: ${VALID_IMPACT_TYPES.join(', ')}`),
+  body('linkedTaskIds')
+    .optional()
+    .isArray().withMessage('linkedTaskIds must be an array of task IDs'),
+  body('linkedTaskIds.*')
+    .optional()
+    .isUUID().withMessage('Each linkedTaskId must be a valid UUID'),
+  body('linked_task_ids')
+    .optional()
+    .isArray().withMessage('linked_task_ids must be an array of task IDs'),
+  body('linked_task_ids.*')
+    .optional()
+    .isUUID().withMessage('Each linked_task_id must be a valid UUID'),
   body('projectId')
     .notEmpty().withMessage('Project ID is required')
     .isUUID().withMessage('Project ID must be a valid UUID'),
@@ -84,6 +103,24 @@ const validateUpdateRisk = [
   body(['delayDays', 'scheduleDelayDays', 'impactDays', 'delay_days'])
     .optional()
     .isInt({ min: 0 }).withMessage('Delay days must be a non-negative integer'),
+  body(['scheduleImpactDays', 'schedule_impact_days'])
+    .optional()
+    .isInt({ min: 0 }).withMessage('scheduleImpactDays must be a non-negative integer'),
+  body('impactType')
+    .optional()
+    .isIn(VALID_IMPACT_TYPES).withMessage(`impactType must be one of: ${VALID_IMPACT_TYPES.join(', ')}`),
+  body('linkedTaskIds')
+    .optional()
+    .isArray().withMessage('linkedTaskIds must be an array of task IDs'),
+  body('linkedTaskIds.*')
+    .optional()
+    .isUUID().withMessage('Each linkedTaskId must be a valid UUID'),
+  body('linked_task_ids')
+    .optional()
+    .isArray().withMessage('linked_task_ids must be an array of task IDs'),
+  body('linked_task_ids.*')
+    .optional()
+    .isUUID().withMessage('Each linked_task_id must be a valid UUID'),
   body('status')
     .optional()
     .isIn(VALID_STATUSES).withMessage(`Status must be one of: ${VALID_STATUSES.join(', ')}`),

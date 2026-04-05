@@ -779,16 +779,33 @@ if (require.main === module) {
     }
   };
 
-  // Add risk schedule-delay column used by schedule impact integration.
+  // Add risk-to-schedule linking columns/tables used by Gantt risk adjustment.
   const ensureRiskScheduleDelayMigration = async () => {
     if (sequelize.getDialect() !== 'postgres') return;
     try {
       await sequelize.query('ALTER TABLE risks ADD COLUMN IF NOT EXISTS "delayDays" INTEGER DEFAULT 0;');
+      await sequelize.query('ALTER TABLE risks ADD COLUMN IF NOT EXISTS "scheduleImpactDays" INTEGER DEFAULT 0;');
+      await sequelize.query('ALTER TABLE risks ADD COLUMN IF NOT EXISTS "impactType" VARCHAR(16) DEFAULT \'NONE\';');
       await sequelize.query('UPDATE risks SET "delayDays" = 0 WHERE "delayDays" IS NULL;');
-      console.log('✅ risks delayDays column ensured');
+      await sequelize.query('UPDATE risks SET "scheduleImpactDays" = COALESCE("scheduleImpactDays", "delayDays", 0);');
+      await sequelize.query('UPDATE risks SET "impactType" = CASE WHEN COALESCE("scheduleImpactDays", 0) > 0 THEN \'DELAY\' ELSE \'NONE\' END WHERE "impactType" IS NULL;');
+      await sequelize.query(`
+        CREATE TABLE IF NOT EXISTS risk_task_links (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          "riskId" UUID NOT NULL REFERENCES risks(id) ON DELETE CASCADE,
+          "taskId" UUID NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+          "delayDays" INTEGER,
+          "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+          "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+          UNIQUE ("riskId", "taskId")
+        );
+      `);
+      await sequelize.query('CREATE INDEX IF NOT EXISTS idx_risk_task_links_risk_id ON risk_task_links ("riskId");');
+      await sequelize.query('CREATE INDEX IF NOT EXISTS idx_risk_task_links_task_id ON risk_task_links ("taskId");');
+      console.log('✅ risk schedule impact columns and risk_task_links table ensured');
     } catch (err) {
       if (!/already exists|does not exist/i.test(err.message)) {
-        console.warn('⚠️  risks delayDays (non-fatal):', err.message);
+        console.warn('⚠️  risk schedule migration (non-fatal):', err.message);
       }
     }
   };

@@ -362,6 +362,89 @@ describe('Schedule API', () => {
     });
   });
 
+  describe('Risk-linked schedule adjustments', () => {
+    it('should shift adjusted end date, accumulate delays, and update forecast when risks change', async () => {
+      const isolatedProject = await Project.create({
+        ...createTestProject({ name: `Risk Linked Schedule ${Date.now()}` }),
+        projectManagerId: testUser.id
+      });
+
+      const createTaskResponse = await request(app)
+        .post(`/api/schedule/projects/${isolatedProject.id}/tasks`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          name: 'Foundation Works',
+          startDate: '2030-01-01T00:00:00.000Z',
+          endDate: '2030-01-10T00:00:00.000Z',
+          duration: 9
+        });
+      expect(createTaskResponse.status).toBe(201);
+      const isolatedTaskId = createTaskResponse.body.data.task.id;
+
+      const riskOneResponse = await request(app)
+        .post('/api/risk/risks')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          title: 'Permit release delay',
+          probability: 0.4,
+          impact: 0.4,
+          projectId: isolatedProject.id,
+          linkedTaskIds: [isolatedTaskId],
+          scheduleImpactDays: 3,
+          impactType: 'DELAY'
+        });
+      expect(riskOneResponse.status).toBe(201);
+
+      const firstAdjustedResponse = await request(app)
+        .get(`/api/schedule/projects/${isolatedProject.id}/risk-adjusted-tasks`)
+        .set('Authorization', `Bearer ${authToken}`);
+      expect(firstAdjustedResponse.status).toBe(200);
+      const firstTask = firstAdjustedResponse.body.data.tasks.find(task => task.id === isolatedTaskId);
+      expect(firstTask.riskDelayDays).toBe(3);
+      expect(firstTask.adjustedEndDate).toContain('2030-01-13');
+      expect(firstTask.hasScheduleRisk).toBe(true);
+      expect(firstTask.linkedRiskIds).toContain(riskOneResponse.body.data.id);
+
+      const riskTwoResponse = await request(app)
+        .post('/api/risk/risks')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          title: 'Inspector delay',
+          probability: 0.5,
+          impact: 0.5,
+          projectId: isolatedProject.id,
+          linkedTaskIds: [isolatedTaskId],
+          scheduleImpactDays: 2,
+          impactType: 'DELAY'
+        });
+      expect(riskTwoResponse.status).toBe(201);
+
+      const accumulatedResponse = await request(app)
+        .get(`/api/schedule/projects/${isolatedProject.id}/schedule`)
+        .set('Authorization', `Bearer ${authToken}`);
+      expect(accumulatedResponse.status).toBe(200);
+      const accumulatedTask = accumulatedResponse.body.data.tasks.find(task => task.id === isolatedTaskId);
+      expect(accumulatedTask.riskDelayDays).toBe(5);
+      expect(accumulatedTask.adjustedEndDate).toContain('2030-01-15');
+      expect(accumulatedResponse.body.data.forecast.riskAdjustedFinishDate).toContain('2030-01-15');
+
+      const closedResponse = await request(app)
+        .patch(`/api/risk/risks/${riskTwoResponse.body.data.id}/status`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ status: 'CLOSED' });
+      expect(closedResponse.status).toBe(200);
+
+      const afterCloseResponse = await request(app)
+        .get(`/api/schedule/projects/${isolatedProject.id}/schedule`)
+        .set('Authorization', `Bearer ${authToken}`);
+      expect(afterCloseResponse.status).toBe(200);
+      const afterCloseTask = afterCloseResponse.body.data.tasks.find(task => task.id === isolatedTaskId);
+      expect(afterCloseTask.riskDelayDays).toBe(3);
+      expect(afterCloseTask.adjustedEndDate).toContain('2030-01-13');
+      expect(afterCloseResponse.body.data.forecast.riskAdjustedFinishDate).toContain('2030-01-13');
+    });
+  });
+
   // --- Delete dependency ---
 
   describe('DELETE /api/schedule/dependencies/:id', () => {

@@ -23,6 +23,28 @@ const normalizeRiskPayload = (payload = {}) => {
   if (delayDays !== undefined) {
     normalized.delayDays = delayDays;
   }
+  const scheduleImpactRaw = [
+    payload.scheduleImpactDays,
+    payload.schedule_impact_days,
+    payload.delayDays,
+    payload.scheduleDelayDays,
+    payload.impactDays,
+    payload.delay_days
+  ].find(v => v !== undefined && v !== null && v !== '');
+  if (scheduleImpactRaw !== undefined) {
+    const parsed = Number(scheduleImpactRaw);
+    if (Number.isFinite(parsed)) {
+      normalized.scheduleImpactDays = Math.max(0, Math.trunc(parsed));
+    }
+  }
+  if (normalized.scheduleImpactDays !== undefined && !normalized.impactType) {
+    normalized.impactType = normalized.scheduleImpactDays > 0 ? 'DELAY' : 'NONE';
+  }
+  if (Array.isArray(payload.linkedTaskIds)) {
+    normalized.linkedTaskIds = payload.linkedTaskIds;
+  } else if (Array.isArray(payload.linked_task_ids)) {
+    normalized.linkedTaskIds = payload.linked_task_ids;
+  }
   return normalized;
 };
 
@@ -30,12 +52,23 @@ const serializeRisk = (risk) => {
   if (!risk) return risk;
   const base = typeof risk.toJSON === 'function' ? risk.toJSON() : { ...risk };
   const delayDays = Number.isFinite(Number(base.delayDays)) ? Number(base.delayDays) : 0;
+  const scheduleImpactDays = Number.isFinite(Number(base.scheduleImpactDays))
+    ? Number(base.scheduleImpactDays)
+    : delayDays;
+  const linkedTaskIds = Array.isArray(base.linkedTasks)
+    ? base.linkedTasks.map(task => task.id)
+    : [];
   return {
     ...base,
     delayDays,
     scheduleDelayDays: delayDays,
     impactDays: delayDays,
     delay_days: delayDays,
+    scheduleImpactDays,
+    schedule_impact_days: scheduleImpactDays,
+    impactType: base.impactType || (scheduleImpactDays > 0 ? 'DELAY' : 'NONE'),
+    linkedTaskIds,
+    hasLinkedTasks: linkedTaskIds.length > 0,
     category: base.riskCategory?.name || null
   };
 };
@@ -117,6 +150,12 @@ class RiskController {
       });
     } catch (error) {
       console.error('RiskController.create error:', error);
+      if (/linkedTaskIds|scheduleImpactDays|same project|do not exist/i.test(error.message)) {
+        return res.status(400).json({
+          success: false,
+          message: error.message
+        });
+      }
       res.status(500).json({
         success: false,
         message: 'Failed to create risk',
@@ -143,6 +182,12 @@ class RiskController {
       });
     } catch (error) {
       console.error('RiskController.update error:', error);
+      if (/linkedTaskIds|scheduleImpactDays|same project|do not exist/i.test(error.message)) {
+        return res.status(400).json({
+          success: false,
+          message: error.message
+        });
+      }
       res.status(500).json({
         success: false,
         message: 'Failed to update risk',

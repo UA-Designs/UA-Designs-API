@@ -37,6 +37,19 @@ module.exports = (sequelize, DataTypes) => {
         min: 0
       }
     },
+    scheduleImpactDays: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      validate: {
+        min: 0
+      }
+    },
+    impactType: {
+      type: DataTypes.ENUM('DELAY', 'NONE'),
+      allowNull: false,
+      defaultValue: 'NONE'
+    },
     riskScore: {
       type: DataTypes.DECIMAL(5, 4),
       allowNull: true

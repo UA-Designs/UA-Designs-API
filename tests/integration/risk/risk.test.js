@@ -97,6 +97,36 @@ describe('Risk API', () => {
 
       expect(response.status).toBe(401);
     });
+
+    it('should reject linked tasks from another project', async () => {
+      const anotherProject = await Project.create({
+        ...createTestProject({ name: `Another Project ${Date.now()}` }),
+        projectManagerId: testUser.id
+      });
+      const foreignTask = await Task.create({
+        name: 'Foreign task',
+        projectId: anotherProject.id,
+        status: 'NOT_STARTED',
+        priority: 'MEDIUM',
+        plannedEndDate: new Date('2031-01-05T00:00:00.000Z')
+      });
+
+      const response = await request(app)
+        .post('/api/risk/risks')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          title: 'Cross project link risk',
+          probability: 0.3,
+          impact: 0.6,
+          projectId: testProject.id,
+          linkedTaskIds: [foreignTask.id],
+          scheduleImpactDays: 4,
+          impactType: 'DELAY'
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toMatch(/same project/i);
+    });
   });
 
   // --- Get all risks ---

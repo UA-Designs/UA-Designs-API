@@ -37,7 +37,7 @@ const { CostModel: Cost, Budget, Expense, CostCategory, SiteUsage } = require('.
 const { Material, Labor, Equipment, TeamMember, SkillsMatrix, ResourceAllocation, EquipmentMaintenance } = require('./Resources');
 
 // Risk Management
-const { RiskModel: Risk, RiskMitigation, RiskCategory } = require('./Risk');
+const { RiskModel: Risk, RiskMitigation, RiskCategory, RiskTaskLink } = require('./Risk');
 
 // Stakeholder Management
 const Stakeholder = require('./Stakeholder/index');
@@ -65,6 +65,7 @@ const EquipmentMaintenanceModel = EquipmentMaintenance(sequelize, Sequelize);
 const RiskModel = Risk(sequelize, Sequelize);
 const RiskMitigationModel = RiskMitigation(sequelize, Sequelize);
 const RiskCategoryModel = RiskCategory(sequelize, Sequelize);
+const RiskTaskLinkModel = RiskTaskLink(sequelize, Sequelize);
 const StakeholderModel = Stakeholder(sequelize, Sequelize);
 const CommunicationModel = Communication(sequelize, Sequelize);
 const StakeholderEngagementModel = StakeholderEngagement(sequelize, Sequelize);
@@ -181,6 +182,23 @@ RiskMitigationModel.belongsTo(RiskModel, { as: 'risk', foreignKey: 'riskId' });
 RiskCategoryModel.hasMany(RiskModel, { as: 'risks', foreignKey: 'categoryId' });
 RiskModel.belongsTo(RiskCategoryModel, { as: 'riskCategory', foreignKey: 'categoryId' });
 
+RiskModel.belongsToMany(TaskModel, {
+  through: RiskTaskLinkModel,
+  as: 'linkedTasks',
+  foreignKey: 'riskId',
+  otherKey: 'taskId'
+});
+TaskModel.belongsToMany(RiskModel, {
+  through: RiskTaskLinkModel,
+  as: 'linkedRisks',
+  foreignKey: 'taskId',
+  otherKey: 'riskId'
+});
+RiskTaskLinkModel.belongsTo(RiskModel, { as: 'risk', foreignKey: 'riskId' });
+RiskTaskLinkModel.belongsTo(TaskModel, { as: 'task', foreignKey: 'taskId' });
+RiskModel.hasMany(RiskTaskLinkModel, { as: 'taskLinks', foreignKey: 'riskId' });
+TaskModel.hasMany(RiskTaskLinkModel, { as: 'riskLinks', foreignKey: 'taskId' });
+
 // Risk User associations
 User.hasMany(RiskModel, { as: 'identifiedRisks', foreignKey: 'identifiedBy' });
 RiskModel.belongsTo(User, { as: 'identifier', foreignKey: 'identifiedBy' });
@@ -239,6 +257,7 @@ module.exports = {
   Risk: RiskModel,
   RiskMitigation: RiskMitigationModel,
   RiskCategory: RiskCategoryModel,
+  RiskTaskLink: RiskTaskLinkModel,
   Stakeholder: StakeholderModel,
   Communication: CommunicationModel,
   StakeholderEngagement: StakeholderEngagementModel,

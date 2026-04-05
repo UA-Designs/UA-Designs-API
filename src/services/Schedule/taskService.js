@@ -1,7 +1,109 @@
-const { Task, TaskDependency, Project, User } = require('../../models');
+const { Task, TaskDependency, Project, User, Risk } = require('../../models');
 const { Op } = require('sequelize');
 
 class TaskService {
+  shiftDateByDays(value, days) {
+    if (!value) return null;
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return null;
+    date.setUTCDate(date.getUTCDate() + days);
+    return date.toISOString();
+  }
+
+  async calculateTaskRiskAdjustments(projectId, taskIds = null) {
+    const where = { projectId };
+    if (Array.isArray(taskIds) && taskIds.length > 0) {
+      where.id = { [Op.in]: taskIds };
+    }
+
+    const tasks = await Task.findAll({
+      where,
+      attributes: ['id', 'startDate', 'endDate', 'plannedStartDate', 'plannedEndDate', 'actualEndDate'],
+      include: [
+        {
+          model: Risk,
+          as: 'linkedRisks',
+          attributes: ['id', 'scheduleImpactDays', 'delayDays', 'status', 'impactType'],
+          through: { attributes: [] },
+          required: false,
+          where: {
+            projectId,
+            status: { [Op.ne]: 'CLOSED' },
+            impactType: 'DELAY'
+          }
+        }
+      ]
+    });
+
+    const taskAdjustments = {};
+    let baselineForecastEndDate = null;
+    let riskAdjustedForecastEndDate = null;
+    let totalProjectRiskDelayDays = 0;
+
+    tasks.forEach(task => {
+      const risks = task.linkedRisks || [];
+      const linkedRiskIds = risks.map(risk => risk.id);
+      const riskDelayDays = risks.reduce((sum, risk) => {
+        if (Number.isFinite(Number(risk.scheduleImpactDays))) {
+          return sum + Number(risk.scheduleImpactDays);
+        }
+        return sum + (Number(risk.delayDays) || 0);
+      }, 0);
+
+      const baseStart = task.plannedStartDate || task.startDate;
+      const baseEnd = task.plannedEndDate || task.endDate || task.actualEndDate;
+      const adjustedStartDate = this.shiftDateByDays(baseStart, riskDelayDays);
+      const adjustedEndDate = this.shiftDateByDays(baseEnd, riskDelayDays);
+
+      taskAdjustments[task.id] = {
+        riskDelayDays,
+        adjustedStartDate,
+        adjustedEndDate,
+        hasScheduleRisk: riskDelayDays > 0,
+        linkedRiskIds
+      };
+
+      if (baseEnd) {
+        const baselineDate = new Date(baseEnd);
+        if (!baselineForecastEndDate || baselineDate > baselineForecastEndDate) {
+          baselineForecastEndDate = baselineDate;
+        }
+      }
+
+      if (adjustedEndDate) {
+        const adjustedDate = new Date(adjustedEndDate);
+        if (!riskAdjustedForecastEndDate || adjustedDate > riskAdjustedForecastEndDate) {
+          riskAdjustedForecastEndDate = adjustedDate;
+        }
+      }
+
+      totalProjectRiskDelayDays += riskDelayDays;
+    });
+
+    return {
+      taskAdjustments,
+      baselineForecastEndDate: baselineForecastEndDate ? baselineForecastEndDate.toISOString() : null,
+      riskAdjustedForecastEndDate: riskAdjustedForecastEndDate ? riskAdjustedForecastEndDate.toISOString() : null,
+      totalProjectRiskDelayDays,
+      adjustmentFormula: 'adjustedTaskEnd = originalEnd + sum(active linked risk scheduleImpactDays)'
+    };
+  }
+
+  mergeTaskWithRiskAdjustment(taskLike, taskAdjustments) {
+    const task = typeof taskLike?.toJSON === 'function' ? taskLike.toJSON() : { ...taskLike };
+    const riskData = taskAdjustments?.[task.id] || {
+      riskDelayDays: 0,
+      adjustedStartDate: null,
+      adjustedEndDate: null,
+      hasScheduleRisk: false,
+      linkedRiskIds: []
+    };
+    return {
+      ...task,
+      ...riskData
+    };
+  }
+
   /**
    * Calculate critical path for a project using CPM (Critical Path Method)
    * @param {string} projectId - Project ID
@@ -66,11 +168,20 @@ class TaskService {
       // Update task critical path flags
       await this.updateTaskCriticalFlags(tasks, criticalPath);
 
+      const riskAdjustment = await this.calculateTaskRiskAdjustments(projectId, tasks.map(task => task.id));
+      const criticalPathWithRisk = criticalPath.map(task => this.mergeTaskWithRiskAdjustment(task, riskAdjustment.taskAdjustments));
+
       return {
-        criticalPath,
+        criticalPath: criticalPathWithRisk,
         totalDuration: projectMetrics.totalDuration,
         criticalTasks: criticalPath.map(task => task.id),
         delayedTasks: projectMetrics.delayedTasks,
+        forecast: {
+          baselineFinishDate: riskAdjustment.baselineForecastEndDate,
+          riskAdjustedFinishDate: riskAdjustment.riskAdjustedForecastEndDate,
+          totalProjectRiskDelayDays: riskAdjustment.totalProjectRiskDelayDays,
+          formula: riskAdjustment.adjustmentFormula
+        },
         analysis: {
           totalTasks: tasks.length,
           criticalTasksCount: criticalPath.length,
@@ -622,13 +733,22 @@ class TaskService {
         offset: parseInt(offset)
       });
 
+      const riskAdjustment = await this.calculateTaskRiskAdjustments(projectId, tasks.map(task => task.id));
+      const tasksWithAdjustments = tasks.map(task => this.mergeTaskWithRiskAdjustment(task, riskAdjustment.taskAdjustments));
+
       return {
-        tasks,
+        tasks: tasksWithAdjustments,
         pagination: {
           total: count,
           page: parseInt(page),
           limit: parseInt(limit),
           totalPages: Math.ceil(count / limit)
+        },
+        forecast: {
+          baselineFinishDate: riskAdjustment.baselineForecastEndDate,
+          riskAdjustedFinishDate: riskAdjustment.riskAdjustedForecastEndDate,
+          totalProjectRiskDelayDays: riskAdjustment.totalProjectRiskDelayDays,
+          formula: riskAdjustment.adjustmentFormula
         }
       };
     } catch (error) {
