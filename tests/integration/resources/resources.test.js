@@ -237,6 +237,51 @@ describe('Resource Management API', () => {
         expect(names).toEqual(['Newest Material', 'Middle Material', 'Oldest Material']);
       });
 
+      it('should safely fallback to createdAt desc for invalid sort params', async () => {
+        const sortProject = await Project.create({
+          ...createTestProject({ name: 'Material Sort Invalid Project', projectNumber: 'UA-SORT-INVALID-001' }),
+          projectManagerId: testUser.id
+        });
+
+        const first = await request(app)
+          .post('/api/resources/materials')
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({
+            name: 'First Material',
+            unit: 'bag',
+            unitCost: 10,
+            quantity: 1,
+            projectId: sortProject.id
+          });
+        const second = await request(app)
+          .post('/api/resources/materials')
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({
+            name: 'Second Material',
+            unit: 'bag',
+            unitCost: 10,
+            quantity: 1,
+            projectId: sortProject.id
+          });
+
+        await Material.update(
+          { createdAt: new Date('2024-02-01T00:00:00.000Z') },
+          { where: { id: first.body.data.id }, silent: true }
+        );
+        await Material.update(
+          { createdAt: new Date('2024-02-02T00:00:00.000Z') },
+          { where: { id: second.body.data.id }, silent: true }
+        );
+
+        const response = await request(app)
+          .get(`/api/resources/materials?projectId=${sortProject.id}&sortBy=drop table materials&sortOrder=sideways&limit=20`)
+          .set('Authorization', `Bearer ${authToken}`);
+
+        expect(response.status).toBe(200);
+        const names = response.body.data.map(item => item.name);
+        expect(names).toEqual(['Second Material', 'First Material']);
+      });
+
       it('should return 401 without auth', async () => {
         const response = await request(app).get('/api/resources/materials');
         expect(response.status).toBe(401);
