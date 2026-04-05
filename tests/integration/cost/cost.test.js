@@ -74,6 +74,14 @@ describe('Cost Management API', () => {
   // =============================================
   describe('Cost endpoints', () => {
     let createdCostId;
+    const validTradeCategories = [
+      'Structural',
+      'Architectural',
+      'Mechanical',
+      'Electrical',
+      'Plumbing',
+      'Fire Protection'
+    ];
 
     describe('POST /api/cost/costs', () => {
       it('should create a cost with valid data', async () => {
@@ -163,6 +171,52 @@ describe('Cost Management API', () => {
           .set('Authorization', `Bearer ${adminToken}`);
         expect(getRes.status).toBe(200);
         expect(getRes.body.data.unit).toBe('Lump Sum');
+      });
+
+      it('should create costs with each supported tradeCategory value', async () => {
+        for (const tradeCategory of validTradeCategories) {
+          // eslint-disable-next-line no-await-in-loop
+          const res = await request(app)
+            .post('/api/cost/costs')
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({
+              name: `${tradeCategory} BOQ Item`,
+              type: 'OTHER',
+              amount: 1000,
+              tradeCategory,
+              date: new Date().toISOString(),
+              projectId: testProject.id
+            });
+
+          expect(res.status).toBe(201);
+          expect(res.body.success).toBe(true);
+          expect(res.body.data.tradeCategory).toBe(tradeCategory);
+
+          // eslint-disable-next-line no-await-in-loop
+          const byId = await request(app)
+            .get(`/api/cost/costs/${res.body.data.id}`)
+            .set('Authorization', `Bearer ${adminToken}`);
+          expect(byId.status).toBe(200);
+          expect(byId.body.data.tradeCategory).toBe(tradeCategory);
+        }
+      });
+
+      it('should reject unsupported legacy tradeCategory values', async () => {
+        const res = await request(app)
+          .post('/api/cost/costs')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({
+            name: 'Legacy Trade Category Cost',
+            type: 'OTHER',
+            amount: 1000,
+            tradeCategory: 'Civil',
+            date: new Date().toISOString(),
+            projectId: testProject.id
+          });
+
+        expect(res.status).toBe(400);
+        expect(res.body.success).toBe(false);
+        expect(JSON.stringify(res.body)).toContain('tradeCategory');
       });
 
       it('should return 400 for missing required fields', async () => {
@@ -357,6 +411,64 @@ describe('Cost Management API', () => {
         expect(saved.unit).toBe('Lump Sum');
       });
 
+      it('should update cost tradeCategory using each supported value', async () => {
+        const createRes = await request(app)
+          .post('/api/cost/costs')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({
+            name: 'Trade Category Update Seed',
+            type: 'OTHER',
+            amount: 12000,
+            tradeCategory: 'Structural',
+            date: new Date().toISOString(),
+            projectId: testProject.id
+          });
+        expect(createRes.status).toBe(201);
+        const costId = createRes.body.data.id;
+
+        for (const tradeCategory of validTradeCategories) {
+          // eslint-disable-next-line no-await-in-loop
+          const updateRes = await request(app)
+            .put(`/api/cost/costs/${costId}`)
+            .set('Authorization', `Bearer ${adminToken}`)
+            .send({ tradeCategory });
+
+          expect(updateRes.status).toBe(200);
+          expect(updateRes.body.success).toBe(true);
+          expect(updateRes.body.data.tradeCategory).toBe(tradeCategory);
+
+          // eslint-disable-next-line no-await-in-loop
+          const byId = await request(app)
+            .get(`/api/cost/costs/${costId}`)
+            .set('Authorization', `Bearer ${adminToken}`);
+          expect(byId.status).toBe(200);
+          expect(byId.body.data.tradeCategory).toBe(tradeCategory);
+        }
+      });
+
+      it('should reject unsupported tradeCategory on update', async () => {
+        const createRes = await request(app)
+          .post('/api/cost/costs')
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({
+            name: 'Invalid Trade Category Update Seed',
+            type: 'OTHER',
+            amount: 12000,
+            tradeCategory: 'Structural',
+            date: new Date().toISOString(),
+            projectId: testProject.id
+          });
+        expect(createRes.status).toBe(201);
+
+        const updateRes = await request(app)
+          .put(`/api/cost/costs/${createRes.body.data.id}`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({ tradeCategory: 'Finishes' });
+
+        expect(updateRes.status).toBe(400);
+        expect(JSON.stringify(updateRes.body)).toContain('tradeCategory');
+      });
+
       it('should prevent non-admin from updating approved costs', async () => {
         // First approve the cost
         await Cost.update({ status: 'APPROVED' }, { where: { id: createdCostId } });
@@ -396,6 +508,11 @@ describe('Cost Management API', () => {
         expect(Cost.rawAttributes.unit.type.toString()).toContain('VARCHAR');
         expect(Cost.rawAttributes.unit.type.toString()).toContain('255');
         expect('Lump Sum'.length).toBeLessThanOrEqual(255);
+      });
+
+      it('should have a persisted tradeCategory column', async () => {
+        expect(Cost.rawAttributes.tradeCategory).toBeDefined();
+        expect(Cost.rawAttributes.tradeCategory.type.toString()).toContain('VARCHAR');
       });
     });
 

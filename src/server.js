@@ -696,6 +696,7 @@ if (require.main === module) {
       ['"estimatedQty"', 'NUMERIC(10,2) DEFAULT 0'],
       ['"unitCost"', 'NUMERIC(10,2)'],
       ['"unit"', 'VARCHAR(255)'],
+      ['"tradeCategory"', 'VARCHAR(64)'],
       ['"actualQty"', 'NUMERIC(10,2) DEFAULT 0'],
       ['"actualAmount"', 'NUMERIC(10,2) DEFAULT 0'],
       ['"amountReceived"', 'NUMERIC(10,2) DEFAULT 0']

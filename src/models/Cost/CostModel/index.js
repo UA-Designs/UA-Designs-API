@@ -30,6 +30,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: true
     },
+    tradeCategory: {
+      type: DataTypes.STRING(64),
+      allowNull: true
+    },
     actualQty: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: true,

@@ -1,6 +1,15 @@
 const { Cost, Project, Task, User } = require('../../models');
 const { Op } = require('sequelize');
 
+const VALID_TRADE_CATEGORIES = [
+  'Structural',
+  'Architectural',
+  'Mechanical',
+  'Electrical',
+  'Plumbing',
+  'Fire Protection'
+];
+
 /**
  * Cost Controller
  * Handles CRUD operations for costs in the Cost Management system
@@ -25,6 +34,7 @@ class CostController {
         estimatedQty,
         unitCost,
         unit,
+        tradeCategory,
         actualQty,
         actualAmount,
         amountReceived
@@ -99,6 +109,7 @@ class CostController {
         unitCost: parsedUnitCost,
         amount: finalAmount,
         unit: unit || null,
+        tradeCategory: tradeCategory || null,
         currency,
         date: new Date(date),
         description,
@@ -342,6 +353,27 @@ class CostController {
         updateData.actualAmount = parseFloat(updateData.actualAmount);
       }
       if (updateData.date) updateData.date = new Date(updateData.date);
+
+      if (Object.prototype.hasOwnProperty.call(updateData, 'tradeCategory')) {
+        if (updateData.tradeCategory === null || updateData.tradeCategory === '') {
+          updateData.tradeCategory = null;
+        } else if (typeof updateData.tradeCategory === 'string') {
+          const normalizedTradeCategory = updateData.tradeCategory.trim().toLowerCase();
+          const matched = VALID_TRADE_CATEGORIES.find((category) => category.toLowerCase() === normalizedTradeCategory);
+          if (!matched) {
+            return res.status(400).json({
+              success: false,
+              message: `tradeCategory must be one of: ${VALID_TRADE_CATEGORIES.join(', ')}`
+            });
+          }
+          updateData.tradeCategory = matched;
+        } else {
+          return res.status(400).json({
+            success: false,
+            message: 'tradeCategory must be a string when provided'
+          });
+        }
+      }
 
       // If estimatedQty or unitCost changed and amount not explicitly provided, recompute amount
       const willUpdateEstimated = Object.prototype.hasOwnProperty.call(updateData, 'estimatedQty');

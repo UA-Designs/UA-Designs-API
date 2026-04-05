@@ -6,8 +6,17 @@
 /**
  * Validate cost creation/update data
  */
+const VALID_TRADE_CATEGORIES = [
+  'Structural',
+  'Architectural',
+  'Mechanical',
+  'Electrical',
+  'Plumbing',
+  'Fire Protection'
+];
+
 const validateCost = (req, res, next) => {
-  const { name, type, amount, date, estimatedQty, unitCost, projectId } = req.body;
+  const { name, type, amount, date, estimatedQty, unitCost, projectId, tradeCategory } = req.body;
   const errors = [];
 
   // Required field validation
@@ -46,6 +55,23 @@ const validateCost = (req, res, next) => {
 
   if (!projectId) {
     errors.push({ field: 'projectId', message: 'Project ID is required so the BOQ item appears in the project list' });
+  }
+
+  if (tradeCategory !== undefined && tradeCategory !== null) {
+    if (typeof tradeCategory !== 'string' || tradeCategory.trim().length === 0) {
+      errors.push({ field: 'tradeCategory', message: 'tradeCategory must be a non-empty string when provided' });
+    } else {
+      const normalizedTradeCategory = tradeCategory.trim().toLowerCase();
+      const matched = VALID_TRADE_CATEGORIES.find((category) => category.toLowerCase() === normalizedTradeCategory);
+      if (!matched) {
+        errors.push({
+          field: 'tradeCategory',
+          message: `tradeCategory must be one of: ${VALID_TRADE_CATEGORIES.join(', ')}`
+        });
+      } else {
+        req.body.tradeCategory = matched;
+      }
+    }
   }
 
   if (errors.length > 0) {
