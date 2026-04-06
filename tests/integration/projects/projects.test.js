@@ -1,6 +1,6 @@
 const request = require('supertest');
 const app = require('../../../src/server');
-const { sequelize, User, Project } = require('../../../src/models');
+const { sequelize, User, Project, Budget, Expense } = require('../../../src/models');
 const { generateAuthToken, createTestUser, createTestProject } = require('../../helpers/testHelpers');
 
 let adminUser;
@@ -113,6 +113,106 @@ describe('Projects API', () => {
       expect(res.status).toBe(200);
       const projectWithManager = res.body.data.projects.find(p => p.projectManager);
       expect(projectWithManager).toBeDefined();
+    });
+
+    it('should expose normalized numeric budget alert fields', async () => {
+      await Budget.create({
+        name: 'Projects Route Approved Budget',
+        amount: 100,
+        status: 'APPROVED',
+        projectId: testProject.id
+      });
+      await Expense.create({
+        name: 'Projects Route Paid Expense',
+        amount: 80,
+        category: 'OTHER',
+        date: new Date(),
+        status: 'PAID',
+        projectId: testProject.id,
+        submittedBy: pmUser.id
+      });
+
+      const res = await request(app)
+        .get('/api/projects/')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      const project = res.body.data.projects.find(p => p.id === testProject.id);
+      expect(project).toBeTruthy();
+      expect(typeof project.budget).toBe('number');
+      expect(typeof project.actualCost).toBe('number');
+      expect(typeof project.budgetUsedPct).toBe('number');
+      expect(typeof project.budgetAlertLevel).toBe('string');
+      expect(project.budget).toBe(100);
+      expect(project.actualCost).toBe(80);
+      expect(project.budgetUsedPct).toBe(80);
+      expect(project.budgetAlertLevel).toBe('warning_80');
+      expect(project.hasBudget).toBe(true);
+    });
+  });
+
+  describe('GET /api/projects/:id/budget-overview', () => {
+    it('should return normalized budget overview fields', async () => {
+      const project = await Project.create({
+        ...createTestProject({ name: 'Budget Overview Project' }),
+        projectManagerId: pmUser.id
+      });
+      await Budget.create({
+        name: 'Overview Approved Budget',
+        amount: 100,
+        status: 'APPROVED',
+        projectId: project.id
+      });
+      await Expense.create({
+        name: 'Overview Expense',
+        amount: 49.99,
+        category: 'OTHER',
+        date: new Date(),
+        status: 'APPROVED',
+        projectId: project.id,
+        submittedBy: pmUser.id
+      });
+
+      const res = await request(app)
+        .get(`/api/projects/${project.id}/budget-overview`)
+        .set('Authorization', `Bearer ${pmToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(typeof res.body.data.budget).toBe('number');
+      expect(typeof res.body.data.actualCost).toBe('number');
+      expect(typeof res.body.data.budgetUsedPct).toBe('number');
+      expect(typeof res.body.data.budgetAlertLevel).toBe('string');
+      expect(res.body.data.budget).toBe(100);
+      expect(res.body.data.actualCost).toBe(49.99);
+      expect(res.body.data.budgetUsedPct).toBe(49.99);
+      expect(res.body.data.budgetAlertLevel).toBe('on_track');
+      expect(res.body.data.hasBudget).toBe(true);
+    });
+
+    it('should return budget 0 and hasBudget false when approved budget is missing', async () => {
+      const project = await Project.create({
+        ...createTestProject({ name: 'Budget Missing Project' }),
+        projectManagerId: pmUser.id
+      });
+      await Expense.create({
+        name: 'No Budget Expense',
+        amount: 10,
+        category: 'OTHER',
+        date: new Date(),
+        status: 'PAID',
+        projectId: project.id,
+        submittedBy: pmUser.id
+      });
+
+      const res = await request(app)
+        .get(`/api/projects/${project.id}/budget-overview`)
+        .set('Authorization', `Bearer ${pmToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.budget).toBe(0);
+      expect(res.body.data.hasBudget).toBe(false);
+      expect(res.body.data.budgetUsedPct).toBe(0);
     });
   });
 

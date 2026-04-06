@@ -3,6 +3,7 @@ const router = express.Router();
 const { Op } = require('sequelize');
 const { authenticateToken } = require('../../middleware/auth');
 const { Project, Task, User, Budget, Expense, Risk } = require('../../models');
+const { buildBudgetAlertPayload, round2 } = require('../../utils/budgetAlerts');
 
 // Dashboard controller functions
 const getStats = async (req, res) => {
@@ -30,7 +31,9 @@ const getStats = async (req, res) => {
           status: { [Op.ne]: 'COMPLETED' }
         }
       }),
-      Budget.sum('amount'),
+      Budget.sum('amount', {
+        where: { status: 'APPROVED' }
+      }),
       Expense.sum('amount', {
         where: { status: { [Op.in]: ['APPROVED', 'PAID'] } }
       }),
@@ -40,6 +43,7 @@ const getStats = async (req, res) => {
 
     const totalBudget = parseFloat(totalBudgetRaw) || 0;
     const spentBudget = parseFloat(spentBudgetRaw) || 0;
+    const budgetUsedPct = totalBudget > 0 ? round2((spentBudget / totalBudget) * 100) : 0;
 
     res.json({
       success: true,
@@ -53,6 +57,7 @@ const getStats = async (req, res) => {
         totalBudget,
         spentBudget,
         remainingBudget: totalBudget - spentBudget,
+        budgetUsedPct,
         teamMembers,
         riskItems
       },
@@ -76,6 +81,20 @@ const getProjectProgress = async (req, res) => {
           model: Task,
           as: 'tasks',
           attributes: ['id', 'status']
+        },
+        {
+          model: Budget,
+          as: 'budgets',
+          attributes: ['id', 'amount', 'status'],
+          where: { status: 'APPROVED' },
+          required: false
+        },
+        {
+          model: Expense,
+          as: 'expenses',
+          attributes: ['id', 'amount', 'status'],
+          where: { status: { [Op.in]: ['APPROVED', 'PAID'] } },
+          required: false
         }
       ],
       order: [['updatedAt', 'DESC']]
@@ -83,11 +102,16 @@ const getProjectProgress = async (req, res) => {
 
     const projectProgress = projects.map(project => {
       const tasks = project.tasks || [];
+      const budgets = project.budgets || [];
+      const expenses = project.expenses || [];
       const totalTasks = tasks.length;
       const completedTasks = tasks.filter(t => t.status === 'COMPLETED').length;
       const progress = totalTasks > 0
         ? Math.round((completedTasks / totalTasks) * 100)
         : (project.progress || 0);
+      const budget = budgets.reduce((sum, b) => sum + parseFloat(b.amount || 0), 0);
+      const actualCost = expenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+      const budgetAlert = buildBudgetAlertPayload({ budget, actualCost });
 
       return {
         id: project.id,
@@ -96,7 +120,11 @@ const getProjectProgress = async (req, res) => {
         status: project.status,
         startDate: project.startDate,
         endDate: project.endDate,
-        budget: parseFloat(project.budget) || 0,
+        budget: budgetAlert.budget,
+        actualCost: budgetAlert.actualCost,
+        hasBudget: budgetAlert.hasBudget,
+        budgetUsedPct: budgetAlert.budgetUsedPct,
+        budgetAlertLevel: budgetAlert.budgetAlertLevel,
         phase: project.phase || null
       };
     });
@@ -163,12 +191,16 @@ const getCostVariance = async (req, res) => {
         {
           model: Budget,
           as: 'budgets',
-          attributes: ['amount']
+          attributes: ['amount', 'status'],
+          where: { status: 'APPROVED' },
+          required: false
         },
         {
           model: Expense,
           as: 'expenses',
-          attributes: ['amount', 'status']
+          attributes: ['amount', 'status'],
+          where: { status: { [Op.in]: ['APPROVED', 'PAID'] } },
+          required: false
         }
       ]
     });
@@ -176,25 +208,23 @@ const getCostVariance = async (req, res) => {
     const costVariance = projects.map(project => {
       const budgets = project.budgets || [];
       const expenses = project.expenses || [];
-
-      const budgetedCost = budgets.length > 0
-        ? budgets.reduce((sum, b) => sum + parseFloat(b.amount), 0)
-        : parseFloat(project.budget) || 0;
-
-      const actualCost = expenses
-        .filter(e => ['APPROVED', 'PAID'].includes(e.status))
-        .reduce((sum, e) => sum + parseFloat(e.amount), 0);
-
-      const variance = actualCost - budgetedCost;
-      const variancePercentage = budgetedCost > 0
-        ? parseFloat(((variance / budgetedCost) * 100).toFixed(2))
+      const budget = budgets.reduce((sum, b) => sum + parseFloat(b.amount || 0), 0);
+      const actualCost = expenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+      const alert = buildBudgetAlertPayload({ budget, actualCost });
+      const variance = round2(alert.actualCost - alert.budget);
+      const variancePercentage = alert.budget > 0
+        ? round2((variance / alert.budget) * 100)
         : 0;
 
       return {
         id: project.id,
         projectName: project.name,
-        budgetedCost,
-        actualCost,
+        budget: alert.budget,
+        actualCost: alert.actualCost,
+        hasBudget: alert.hasBudget,
+        budgetUsedPct: alert.budgetUsedPct,
+        budgetAlertLevel: alert.budgetAlertLevel,
+        budgetedCost: alert.budget,
         variance,
         variancePercentage,
         status: variance > 0 ? 'Over Budget' : variance < 0 ? 'Under Budget' : 'On Budget'

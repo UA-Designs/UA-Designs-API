@@ -161,6 +161,77 @@ describe('Dashboard API', () => {
 
       expect(res.status).toBe(401);
     });
+
+    it('should return correct budget alert thresholds and missing-budget flags', async () => {
+      const createCase = async (suffix, spentAmount, withBudget = true) => {
+        const project = await Project.create({
+          name: `Budget Threshold ${suffix}`,
+          projectType: 'residential',
+          status: 'active',
+          clientName: `Client ${suffix}`,
+          projectManagerId: testUser.id
+        });
+
+        if (withBudget) {
+          await Budget.create({
+            name: `Budget ${suffix}`,
+            amount: 100,
+            projectId: project.id,
+            status: 'APPROVED'
+          });
+        }
+
+        if (spentAmount > 0) {
+          await Expense.create({
+            name: `Expense ${suffix}`,
+            amount: spentAmount,
+            category: 'OTHER',
+            date: new Date(),
+            projectId: project.id,
+            status: 'PAID',
+            submittedBy: testUser.id
+          });
+        }
+      };
+
+      await createCase('49_99', 49.99);
+      await createCase('50_00', 50.00);
+      await createCase('79_99', 79.99);
+      await createCase('80_00', 80.00);
+      await createCase('100_00', 100.00);
+      await createCase('100_01', 100.01);
+      await createCase('NO_BUDGET', 25.00, false);
+
+      const res = await request(app)
+        .get('/api/dashboard/cost-variance')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+
+      const byName = (name) => res.body.data.find(p => p.projectName === name);
+
+      expect(byName('Budget Threshold 49_99').budgetUsedPct).toBe(49.99);
+      expect(byName('Budget Threshold 49_99').budgetAlertLevel).toBe('on_track');
+
+      expect(byName('Budget Threshold 50_00').budgetUsedPct).toBe(50.00);
+      expect(byName('Budget Threshold 50_00').budgetAlertLevel).toBe('warning_50');
+
+      expect(byName('Budget Threshold 79_99').budgetUsedPct).toBe(79.99);
+      expect(byName('Budget Threshold 79_99').budgetAlertLevel).toBe('warning_50');
+
+      expect(byName('Budget Threshold 80_00').budgetUsedPct).toBe(80.00);
+      expect(byName('Budget Threshold 80_00').budgetAlertLevel).toBe('warning_80');
+
+      expect(byName('Budget Threshold 100_00').budgetUsedPct).toBe(100.00);
+      expect(byName('Budget Threshold 100_00').budgetAlertLevel).toBe('warning_80');
+
+      expect(byName('Budget Threshold 100_01').budgetUsedPct).toBe(100.01);
+      expect(byName('Budget Threshold 100_01').budgetAlertLevel).toBe('critical');
+
+      expect(byName('Budget Threshold NO_BUDGET').budget).toBe(0);
+      expect(byName('Budget Threshold NO_BUDGET').hasBudget).toBe(false);
+    });
   });
 
   // --- Recent activities ---
