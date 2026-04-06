@@ -1033,6 +1033,16 @@ describe('Cost Management API', () => {
         expect(res.body.data).toHaveProperty('budgets');
         expect(res.body.data).toHaveProperty('pagination');
         expect(Array.isArray(res.body.data.budgets)).toBe(true);
+        if (res.body.data.budgets.length > 0) {
+          const first = res.body.data.budgets[0];
+          expect(first).toHaveProperty('id');
+          expect(first).toHaveProperty('projectId');
+          expect(first).toHaveProperty('amount');
+          expect(first).toHaveProperty('status');
+          expect(first).toHaveProperty('isActive');
+          expect(first).toHaveProperty('createdAt');
+          expect(typeof first.amount).toBe('number');
+        }
       });
 
       it('should filter budgets by projectId', async () => {

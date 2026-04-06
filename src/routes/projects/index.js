@@ -4,6 +4,7 @@ const { authenticateToken } = require('../../middleware/auth');
 const { authorize, authorizeOwnerOr } = require('../../middleware/authorize');
 const { Op } = require('sequelize');
 const { buildBudgetAlertPayload, round2 } = require('../../utils/budgetAlerts');
+const { summarizeProjectBudget } = require('../../utils/projectBudgetResolver');
 const router = express.Router();
 
 // Health check
@@ -61,12 +62,12 @@ router.get('/', authenticateToken, async (req, res) => {
       offset: parseInt(offset)
     });
 
-    // Attach approved-budget baseline + actual spent per project
+    // Attach resolved budget baseline + actual spent per project
     const projectIds = projects.map(p => p.id);
     let spentByProject = {};
-    let budgetByProject = {};
+    let budgetsByProject = {};
     if (projectIds.length > 0) {
-      const [expenseSums, budgetSums] = await Promise.all([
+      const [expenseSums, budgetRows] = await Promise.all([
         Expense.findAll({
           attributes: [
             'projectId',
@@ -80,15 +81,10 @@ router.get('/', authenticateToken, async (req, res) => {
           raw: true
         }),
         Budget.findAll({
-          attributes: [
-            'projectId',
-            [Project.sequelize.fn('SUM', Project.sequelize.col('amount')), 'totalBudget']
-          ],
+          attributes: ['id', 'projectId', 'amount', 'status', 'createdAt', 'updatedAt'],
           where: {
-            projectId: { [Op.in]: projectIds },
-            status: 'APPROVED'
+            projectId: { [Op.in]: projectIds }
           },
-          group: ['projectId'],
           raw: true
         })
       ]);
@@ -97,19 +93,31 @@ router.get('/', authenticateToken, async (req, res) => {
         acc[row.projectId] = parseFloat(row.totalSpent || 0);
         return acc;
       }, {});
-      budgetByProject = budgetSums.reduce((acc, row) => {
-        acc[row.projectId] = parseFloat(row.totalBudget || 0);
+      budgetsByProject = budgetRows.reduce((acc, row) => {
+        if (!acc[row.projectId]) acc[row.projectId] = [];
+        acc[row.projectId].push(row);
         return acc;
       }, {});
 
       projects.forEach(project => {
+        const budgetSummary = summarizeProjectBudget({
+          projectBudgetField: project.budget,
+          budgetRecords: budgetsByProject[project.id] || []
+        });
         const alert = buildBudgetAlertPayload({
-          budget: budgetByProject[project.id] || 0,
+          budget: budgetSummary.budget,
           actualCost: spentByProject[project.id] || 0
         });
         project.setDataValue('budget', alert.budget);
         project.setDataValue('actualCost', alert.actualCost);
         project.setDataValue('hasBudget', alert.hasBudget);
+        project.setDataValue('budgetSource', budgetSummary.budgetSource);
+        project.setDataValue('projectBudgetSummary', {
+          totalApproved: budgetSummary.totalApproved,
+          totalsByStatus: budgetSummary.totalsByStatus,
+          currentBudgetId: budgetSummary.currentBudgetId,
+          currentBudgetStatus: budgetSummary.currentBudgetStatus
+        });
         project.setDataValue('budgetUsedPct', alert.budgetUsedPct);
         project.setDataValue('budgetAlertLevel', alert.budgetAlertLevel);
       });
@@ -146,10 +154,10 @@ router.get('/:id/budget-overview', authenticateToken, async (req, res) => {
     if (!project) {
       return res.status(404).json({ success: false, message: 'Project not found' });
     }
-    const [approvedBudgets, expenses] = await Promise.all([
+    const [budgets, expenses] = await Promise.all([
       Budget.findAll({
-        where: { projectId: id, status: 'APPROVED' },
-        attributes: ['amount']
+        where: { projectId: id },
+        attributes: ['id', 'amount', 'status', 'createdAt', 'updatedAt']
       }),
       Expense.findAll({
         where: {
@@ -159,9 +167,12 @@ router.get('/:id/budget-overview', authenticateToken, async (req, res) => {
         attributes: ['amount']
       })
     ]);
-    const budget = approvedBudgets.reduce((sum, b) => sum + parseFloat(b.amount || 0), 0);
+    const budgetSummary = summarizeProjectBudget({
+      projectBudgetField: project.budget,
+      budgetRecords: budgets
+    });
     const actualCost = expenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
-    const alert = buildBudgetAlertPayload({ budget, actualCost });
+    const alert = buildBudgetAlertPayload({ budget: budgetSummary.budget, actualCost });
     const variance = round2(alert.budget - alert.actualCost);
     res.json({
       success: true,
@@ -172,6 +183,13 @@ router.get('/:id/budget-overview', authenticateToken, async (req, res) => {
         actualCost: alert.actualCost,
         totalActualCost: alert.actualCost,
         hasBudget: alert.hasBudget,
+        budgetSource: budgetSummary.budgetSource,
+        projectBudgetSummary: {
+          totalApproved: budgetSummary.totalApproved,
+          totalsByStatus: budgetSummary.totalsByStatus,
+          currentBudgetId: budgetSummary.currentBudgetId,
+          currentBudgetStatus: budgetSummary.currentBudgetStatus
+        },
         budgetUsedPct: alert.budgetUsedPct,
         budgetAlertLevel: alert.budgetAlertLevel,
         variance,
@@ -630,14 +648,24 @@ router.get('/stats/overview', authenticateToken, async (req, res) => {
       }
     });
 
-    // Total approved baseline budget and approved/paid spend across all projects
-    const budgetStats = await Budget.findAll({
-      attributes: [
-        [Budget.sequelize.fn('SUM', Budget.sequelize.col('amount')), 'totalBudget']
-      ],
-      where: { status: 'APPROVED' },
+    // Total resolved project baseline budgets and approved/paid spend across all projects
+    const projects = await Project.findAll({
+      attributes: ['id', 'budget'],
       raw: true
     });
+    const projectIds = projects.map(p => p.id);
+    const budgetRows = projectIds.length > 0
+      ? await Budget.findAll({
+        attributes: ['id', 'projectId', 'amount', 'status', 'createdAt', 'updatedAt'],
+        where: { projectId: { [Op.in]: projectIds } },
+        raw: true
+      })
+      : [];
+    const budgetsByProject = budgetRows.reduce((acc, row) => {
+      if (!acc[row.projectId]) acc[row.projectId] = [];
+      acc[row.projectId].push(row);
+      return acc;
+    }, {});
 
     const expenseStats = await Expense.findAll({
       attributes: [
@@ -647,7 +675,13 @@ router.get('/stats/overview', authenticateToken, async (req, res) => {
       raw: true
     });
 
-    const totalBudget = parseFloat(budgetStats[0]?.totalBudget || 0);
+    const totalBudget = projects.reduce((sum, p) => {
+      const budgetSummary = summarizeProjectBudget({
+        projectBudgetField: p.budget,
+        budgetRecords: budgetsByProject[p.id] || []
+      });
+      return sum + budgetSummary.budget;
+    }, 0);
     const spentBudget = parseFloat(expenseStats[0]?.totalSpent || 0);
     const remainingBudget = totalBudget - spentBudget;
 

@@ -149,6 +149,96 @@ describe('Projects API', () => {
       expect(project.budgetAlertLevel).toBe('warning_80');
       expect(project.hasBudget).toBe(true);
     });
+
+    it('should resolve budgets correctly for one budget, revisions, status mixes, and fallbacks', async () => {
+      const oneBudgetProject = await Project.create({
+        ...createTestProject({ name: 'Budget Case One' }),
+        budget: 0,
+        projectManagerId: pmUser.id
+      });
+      await Budget.create({
+        name: 'One Budget',
+        amount: 120,
+        status: 'PLANNED',
+        projectId: oneBudgetProject.id
+      });
+
+      const revisedProject = await Project.create({
+        ...createTestProject({ name: 'Budget Case Revised' }),
+        budget: 0,
+        projectManagerId: pmUser.id
+      });
+      await Budget.create({
+        name: 'Older Revised',
+        amount: 500,
+        status: 'REVISED',
+        projectId: revisedProject.id,
+        createdAt: new Date('2024-01-01'),
+        updatedAt: new Date('2024-01-01')
+      });
+      await Budget.create({
+        name: 'Current Planned',
+        amount: 300,
+        status: 'PLANNED',
+        projectId: revisedProject.id,
+        createdAt: new Date('2024-06-01'),
+        updatedAt: new Date('2024-06-01')
+      });
+
+      const mixedStatusProject = await Project.create({
+        ...createTestProject({ name: 'Budget Case Approved Wins' }),
+        budget: 0,
+        projectManagerId: pmUser.id
+      });
+      await Budget.create({
+        name: 'Draft Budget',
+        amount: 200,
+        status: 'PLANNED',
+        projectId: mixedStatusProject.id
+      });
+      await Budget.create({
+        name: 'Approved Budget',
+        amount: 400,
+        status: 'APPROVED',
+        projectId: mixedStatusProject.id
+      });
+
+      const noBudgetProject = await Project.create({
+        ...createTestProject({ name: 'Budget Case None' }),
+        budget: 0,
+        projectManagerId: pmUser.id
+      });
+
+      const legacyFieldProject = await Project.create({
+        ...createTestProject({ name: 'Budget Case Legacy Field' }),
+        budget: 275,
+        projectManagerId: pmUser.id
+      });
+
+      const res = await request(app)
+        .get('/api/projects/?limit=100')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      const rows = res.body.data.projects;
+      const byName = (name) => rows.find(p => p.name === name);
+
+      expect(byName('Budget Case One').budget).toBe(120);
+      expect(byName('Budget Case One').budgetSource).toBe('budget_records');
+
+      expect(byName('Budget Case Revised').budget).toBe(300);
+      expect(byName('Budget Case Revised').budgetSource).toBe('budget_records');
+
+      expect(byName('Budget Case Approved Wins').budget).toBe(400);
+      expect(byName('Budget Case Approved Wins').budgetSource).toBe('budget_records');
+
+      expect(byName('Budget Case None').budget).toBe(0);
+      expect(byName('Budget Case None').hasBudget).toBe(false);
+      expect(byName('Budget Case None').budgetSource).toBe('none');
+
+      expect(byName('Budget Case Legacy Field').budget).toBe(275);
+      expect(byName('Budget Case Legacy Field').budgetSource).toBe('project_field');
+    });
   });
 
   describe('GET /api/projects/:id/budget-overview', () => {

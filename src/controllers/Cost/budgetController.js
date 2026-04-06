@@ -7,6 +7,26 @@ const { Op } = require('sequelize');
  * PMBOK Knowledge Area: Project Cost Management - Determine Budget
  */
 class BudgetController {
+  static toNumber(value) {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  static serializeBudget(budget) {
+    if (!budget) return null;
+    const raw = typeof budget.toJSON === 'function' ? budget.toJSON() : budget;
+    return {
+      ...raw,
+      id: raw.id,
+      projectId: raw.projectId || null,
+      amount: BudgetController.toNumber(raw.amount),
+      status: raw.status || null,
+      isActive: raw.status !== 'CLOSED',
+      createdAt: raw.createdAt || null,
+      updatedAt: raw.updatedAt || null
+    };
+  }
+
   /**
    * Create a new budget
    * POST /api/cost/budgets
@@ -59,7 +79,7 @@ class BudgetController {
       res.status(201).json({
         success: true,
         message: 'Budget created successfully',
-        data: budget
+        data: BudgetController.serializeBudget(budget)
       });
     } catch (error) {
       console.error('Create budget error:', error);
@@ -79,7 +99,7 @@ class BudgetController {
     try {
       const {
         page = 1,
-        limit = 10,
+        limit = 100,
         projectId,
         status,
         search,
@@ -119,7 +139,7 @@ class BudgetController {
       res.json({
         success: true,
         data: {
-          budgets,
+          budgets: budgets.map(b => BudgetController.serializeBudget(b)),
           pagination: {
             currentPage: parseInt(page),
             totalPages: Math.ceil(count / limit),
@@ -180,7 +200,7 @@ class BudgetController {
       res.json({
         success: true,
         data: {
-          ...budget.toJSON(),
+          ...BudgetController.serializeBudget(budget),
           metrics: {
             totalSpent,
             remaining,
@@ -244,7 +264,7 @@ class BudgetController {
       res.json({
         success: true,
         message: 'Budget updated successfully',
-        data: budget
+        data: BudgetController.serializeBudget(budget)
       });
     } catch (error) {
       console.error('Update budget error:', error);
@@ -334,7 +354,7 @@ class BudgetController {
       res.json({
         success: true,
         message: 'Budget approved successfully',
-        data: budget
+        data: BudgetController.serializeBudget(budget)
       });
     } catch (error) {
       console.error('Approve budget error:', error);
@@ -388,8 +408,8 @@ class BudgetController {
         success: true,
         message: 'Budget revised successfully',
         data: {
-          previousBudget: currentBudget,
-          newBudget: revisedBudget
+          previousBudget: BudgetController.serializeBudget(currentBudget),
+          newBudget: BudgetController.serializeBudget(revisedBudget)
         }
       });
     } catch (error) {
@@ -430,7 +450,7 @@ class BudgetController {
       res.json({
         success: true,
         message: 'Budget closed successfully',
-        data: budget
+        data: BudgetController.serializeBudget(budget)
       });
     } catch (error) {
       console.error('Close budget error:', error);

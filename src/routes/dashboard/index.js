@@ -4,23 +4,28 @@ const { Op } = require('sequelize');
 const { authenticateToken } = require('../../middleware/auth');
 const { Project, Task, User, Budget, Expense, Risk } = require('../../models');
 const { buildBudgetAlertPayload, round2 } = require('../../utils/budgetAlerts');
+const { summarizeProjectBudget } = require('../../utils/projectBudgetResolver');
 
 // Dashboard controller functions
 const getStats = async (req, res) => {
   try {
+    const projects = await Project.findAll({
+      attributes: ['id', 'budget'],
+      raw: true
+    });
+    const projectIds = projects.map(p => p.id);
+
     const [
-      totalProjects,
       activeProjects,
       completedProjects,
       totalTasks,
       completedTasks,
       overdueTasks,
-      totalBudgetRaw,
       spentBudgetRaw,
       teamMembers,
-      riskItems
+      riskItems,
+      budgetRows
     ] = await Promise.all([
-      Project.count(),
       Project.count({ where: { status: 'active' } }),
       Project.count({ where: { status: 'completed' } }),
       Task.count(),
@@ -31,24 +36,39 @@ const getStats = async (req, res) => {
           status: { [Op.ne]: 'COMPLETED' }
         }
       }),
-      Budget.sum('amount', {
-        where: { status: 'APPROVED' }
-      }),
       Expense.sum('amount', {
         where: { status: { [Op.in]: ['APPROVED', 'PAID'] } }
       }),
       User.count({ where: { isActive: true } }),
-      Risk.count({ where: { status: { [Op.ne]: 'CLOSED' } } })
+      Risk.count({ where: { status: { [Op.ne]: 'CLOSED' } } }),
+      projectIds.length > 0
+        ? Budget.findAll({
+          attributes: ['id', 'projectId', 'amount', 'status', 'createdAt', 'updatedAt'],
+          where: { projectId: { [Op.in]: projectIds } },
+          raw: true
+        })
+        : []
     ]);
 
-    const totalBudget = parseFloat(totalBudgetRaw) || 0;
+    const budgetsByProject = budgetRows.reduce((acc, row) => {
+      if (!acc[row.projectId]) acc[row.projectId] = [];
+      acc[row.projectId].push(row);
+      return acc;
+    }, {});
+    const totalBudget = projects.reduce((sum, p) => {
+      const resolved = summarizeProjectBudget({
+        projectBudgetField: p.budget,
+        budgetRecords: budgetsByProject[p.id] || []
+      });
+      return sum + resolved.budget;
+    }, 0);
     const spentBudget = parseFloat(spentBudgetRaw) || 0;
     const budgetUsedPct = totalBudget > 0 ? round2((spentBudget / totalBudget) * 100) : 0;
 
     res.json({
       success: true,
       data: {
-        totalProjects,
+        totalProjects: projects.length,
         activeProjects,
         completedProjects,
         totalTasks,
@@ -85,8 +105,7 @@ const getProjectProgress = async (req, res) => {
         {
           model: Budget,
           as: 'budgets',
-          attributes: ['id', 'amount', 'status'],
-          where: { status: 'APPROVED' },
+          attributes: ['id', 'amount', 'status', 'createdAt', 'updatedAt'],
           required: false
         },
         {
@@ -109,9 +128,12 @@ const getProjectProgress = async (req, res) => {
       const progress = totalTasks > 0
         ? Math.round((completedTasks / totalTasks) * 100)
         : (project.progress || 0);
-      const budget = budgets.reduce((sum, b) => sum + parseFloat(b.amount || 0), 0);
+      const budgetSummary = summarizeProjectBudget({
+        projectBudgetField: project.budget,
+        budgetRecords: budgets
+      });
       const actualCost = expenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
-      const budgetAlert = buildBudgetAlertPayload({ budget, actualCost });
+      const budgetAlert = buildBudgetAlertPayload({ budget: budgetSummary.budget, actualCost });
 
       return {
         id: project.id,
@@ -123,6 +145,7 @@ const getProjectProgress = async (req, res) => {
         budget: budgetAlert.budget,
         actualCost: budgetAlert.actualCost,
         hasBudget: budgetAlert.hasBudget,
+        budgetSource: budgetSummary.budgetSource,
         budgetUsedPct: budgetAlert.budgetUsedPct,
         budgetAlertLevel: budgetAlert.budgetAlertLevel,
         phase: project.phase || null
@@ -191,8 +214,7 @@ const getCostVariance = async (req, res) => {
         {
           model: Budget,
           as: 'budgets',
-          attributes: ['amount', 'status'],
-          where: { status: 'APPROVED' },
+          attributes: ['id', 'amount', 'status', 'createdAt', 'updatedAt'],
           required: false
         },
         {
@@ -208,9 +230,12 @@ const getCostVariance = async (req, res) => {
     const costVariance = projects.map(project => {
       const budgets = project.budgets || [];
       const expenses = project.expenses || [];
-      const budget = budgets.reduce((sum, b) => sum + parseFloat(b.amount || 0), 0);
+      const budgetSummary = summarizeProjectBudget({
+        projectBudgetField: project.budget,
+        budgetRecords: budgets
+      });
       const actualCost = expenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
-      const alert = buildBudgetAlertPayload({ budget, actualCost });
+      const alert = buildBudgetAlertPayload({ budget: budgetSummary.budget, actualCost });
       const variance = round2(alert.actualCost - alert.budget);
       const variancePercentage = alert.budget > 0
         ? round2((variance / alert.budget) * 100)
@@ -222,6 +247,7 @@ const getCostVariance = async (req, res) => {
         budget: alert.budget,
         actualCost: alert.actualCost,
         hasBudget: alert.hasBudget,
+        budgetSource: budgetSummary.budgetSource,
         budgetUsedPct: alert.budgetUsedPct,
         budgetAlertLevel: alert.budgetAlertLevel,
         budgetedCost: alert.budget,
