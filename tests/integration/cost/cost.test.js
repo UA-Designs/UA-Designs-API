@@ -1954,6 +1954,22 @@ describe('Cost Management API', () => {
   // COST ANALYSIS ENDPOINTS
   // =============================================
   describe('Analysis endpoints', () => {
+    const createAnalysisProject = async (overrides = {}) => {
+      const unique = Date.now() + Math.floor(Math.random() * 10000);
+      const now = new Date();
+      const future = new Date(now);
+      future.setDate(future.getDate() + 30);
+      return Project.create({
+        ...createTestProject({
+          name: `EVM Project ${unique}`,
+          projectNumber: `UA-EVM-${unique}`,
+          startDate: now.toISOString(),
+          endDate: future.toISOString(),
+          ...overrides
+        }),
+        projectManagerId: pmUser.id
+      });
+    };
 
     describe('GET /api/cost/analysis/overview/:projectId', () => {
       it('should return cost overview for a project', async () => {
@@ -1965,16 +1981,12 @@ describe('Cost Management API', () => {
         expect(res.body.success).toBe(true);
         expect(res.body.data).toHaveProperty('projectId');
         expect(res.body.data).toHaveProperty('projectName');
-        expect(res.body.data).toHaveProperty('overview');
-        expect(res.body.data.overview).toHaveProperty('totalBudget');
-        expect(res.body.data.overview).toHaveProperty('totalApproved');
-        expect(res.body.data.overview).toHaveProperty('totalPending');
-        expect(res.body.data.overview).toHaveProperty('totalPaid');
-        expect(res.body.data.overview).toHaveProperty('remaining');
-        expect(res.body.data.overview).toHaveProperty('budgetUtilization');
-        expect(res.body.data.overview).toHaveProperty('isOverBudget');
-        expect(res.body.data).toHaveProperty('budgetCount');
-        expect(res.body.data).toHaveProperty('expenseCount');
+        expect(typeof res.body.data.totalBudget).toBe('number');
+        expect(typeof res.body.data.totalActualCost).toBe('number');
+        expect(typeof res.body.data.variance).toBe('number');
+        expect(res.body.data).toHaveProperty('dataCompleteness');
+        expect(res.body.data).toHaveProperty('calculationStatus');
+        expect(Array.isArray(res.body.data.notes)).toBe(true);
       });
 
       it('should return 404 for non-existent project', async () => {
@@ -1996,20 +2008,18 @@ describe('Cost Management API', () => {
         expect(res.status).toBe(200);
         expect(res.body.success).toBe(true);
         expect(res.body.data).toHaveProperty('projectId');
-        expect(res.body.data).toHaveProperty('baseMetrics');
-        expect(res.body.data.baseMetrics).toHaveProperty('BAC');
-        expect(res.body.data.baseMetrics).toHaveProperty('PV');
-        expect(res.body.data.baseMetrics).toHaveProperty('EV');
-        expect(res.body.data.baseMetrics).toHaveProperty('AC');
-        expect(res.body.data).toHaveProperty('variances');
-        expect(res.body.data.variances).toHaveProperty('CV');
-        expect(res.body.data.variances).toHaveProperty('SV');
-        expect(res.body.data).toHaveProperty('indices');
-        expect(res.body.data.indices).toHaveProperty('CPI');
-        expect(res.body.data.indices).toHaveProperty('SPI');
-        expect(res.body.data).toHaveProperty('forecasts');
-        expect(res.body.data).toHaveProperty('progress');
-        expect(res.body.data).toHaveProperty('health');
+        expect(typeof res.body.data.plannedValue).toBe('number');
+        expect(typeof res.body.data.earnedValue).toBe('number');
+        expect(typeof res.body.data.actualCost).toBe('number');
+        expect(typeof res.body.data.cpi).toBe('number');
+        expect(typeof res.body.data.spi).toBe('number');
+        expect(typeof res.body.data.totalBudget).toBe('number');
+        expect(typeof res.body.data.costVariance).toBe('number');
+        expect(typeof res.body.data.scheduleVariance).toBe('number');
+        expect(typeof res.body.data.budgetUsedPct).toBe('number');
+        expect(res.body.data).toHaveProperty('dataCompleteness');
+        expect(res.body.data).toHaveProperty('calculationStatus');
+        expect(Array.isArray(res.body.data.notes)).toBe(true);
       });
 
       it('should return 404 for non-existent project', async () => {
@@ -2018,6 +2028,127 @@ describe('Cost Management API', () => {
           .set('Authorization', `Bearer ${adminToken}`);
 
         expect(res.status).toBe(404);
+      });
+
+      it('returns complete status when budget, schedule, progress, and costs exist', async () => {
+        const project = await createAnalysisProject();
+        await Budget.create({
+          name: 'Baseline Budget',
+          amount: 100000,
+          status: 'APPROVED',
+          projectId: project.id
+        });
+        await Task.create({
+          ...createTestTask({ name: 'EVM Task 1' }),
+          progress: 50,
+          projectId: project.id,
+          assignedTo: pmUser.id,
+          createdBy: pmUser.id
+        });
+        await Expense.create({
+          name: 'Concrete Purchase',
+          amount: 20000,
+          category: 'MATERIAL',
+          date: new Date(),
+          status: 'APPROVED',
+          projectId: project.id,
+          submittedBy: pmUser.id
+        });
+
+        const res = await request(app)
+          .get(`/api/cost/analysis/evm/${project.id}`)
+          .set('Authorization', `Bearer ${adminToken}`);
+
+        expect(res.status).toBe(200);
+        expect(res.body.data.calculationStatus).toBe('complete');
+        expect(res.body.data.dataCompleteness.hasBudgetBaseline).toBe(true);
+        expect(res.body.data.dataCompleteness.hasScheduleBaseline).toBe(true);
+        expect(res.body.data.dataCompleteness.hasActualCosts).toBe(true);
+        expect(res.body.data.dataCompleteness.hasProgressData).toBe(true);
+      });
+
+      it('returns partial status when budget baseline is missing', async () => {
+        const project = await createAnalysisProject({ budget: 0 });
+        await Task.create({
+          ...createTestTask({ name: 'No Budget Task' }),
+          progress: 40,
+          projectId: project.id,
+          assignedTo: pmUser.id,
+          createdBy: pmUser.id
+        });
+        await Expense.create({
+          name: 'No Budget Expense',
+          amount: 5000,
+          category: 'OTHER',
+          date: new Date(),
+          status: 'APPROVED',
+          projectId: project.id,
+          submittedBy: pmUser.id
+        });
+
+        const res = await request(app)
+          .get(`/api/cost/analysis/evm/${project.id}`)
+          .set('Authorization', `Bearer ${adminToken}`);
+
+        expect(res.status).toBe(200);
+        expect(res.body.data.calculationStatus).toBe('partial');
+        expect(res.body.data.totalBudget).toBe(0);
+        expect(res.body.data.dataCompleteness.hasBudgetBaseline).toBe(false);
+        expect(res.body.data.dataCompleteness.missingFields).toContain('totalBudget');
+      });
+
+      it('returns partial status when progress data is missing', async () => {
+        const project = await createAnalysisProject();
+        await Budget.create({
+          name: 'Budget Only',
+          amount: 50000,
+          status: 'APPROVED',
+          projectId: project.id
+        });
+        await Expense.create({
+          name: 'Labor Cost',
+          amount: 10000,
+          category: 'LABOR',
+          date: new Date(),
+          status: 'PAID',
+          projectId: project.id,
+          submittedBy: pmUser.id
+        });
+
+        const res = await request(app)
+          .get(`/api/cost/analysis/evm/${project.id}`)
+          .set('Authorization', `Bearer ${adminToken}`);
+
+        expect(res.status).toBe(200);
+        expect(res.body.data.calculationStatus).toBe('partial');
+        expect(res.body.data.earnedValue).toBe(0);
+        expect(res.body.data.dataCompleteness.hasProgressData).toBe(false);
+      });
+
+      it('handles zero actual cost with safe CPI calculation', async () => {
+        const project = await createAnalysisProject();
+        await Budget.create({
+          name: 'Zero AC Budget',
+          amount: 75000,
+          status: 'APPROVED',
+          projectId: project.id
+        });
+        await Task.create({
+          ...createTestTask({ name: 'Task With Progress' }),
+          progress: 60,
+          projectId: project.id,
+          assignedTo: pmUser.id,
+          createdBy: pmUser.id
+        });
+
+        const res = await request(app)
+          .get(`/api/cost/analysis/evm/${project.id}`)
+          .set('Authorization', `Bearer ${adminToken}`);
+
+        expect(res.status).toBe(200);
+        expect(res.body.data.actualCost).toBe(0);
+        expect(res.body.data.cpi).toBe(0);
+        expect(res.body.data.dataCompleteness.hasActualCosts).toBe(false);
       });
     });
 
@@ -2103,6 +2234,11 @@ describe('Cost Management API', () => {
         expect(res.body.success).toBe(true);
         expect(res.body.data).toHaveProperty('projectId');
         expect(res.body.data).toHaveProperty('projectName');
+        expect(typeof res.body.data.eac).toBe('number');
+        expect(typeof res.body.data.etc).toBe('number');
+        expect(typeof res.body.data.vac).toBe('number');
+        expect(typeof res.body.data.tcpi).toBe('number');
+        expect(typeof res.body.data.totalBudget).toBe('number');
       });
 
       it('should handle project with no expenses gracefully', async () => {
@@ -2111,8 +2247,11 @@ describe('Cost Management API', () => {
           .set('Authorization', `Bearer ${adminToken}`);
 
         expect(res.status).toBe(200);
-        expect(res.body.data).toHaveProperty('message');
-        expect(res.body.data.forecast).toBeNull();
+        expect(typeof res.body.data.eac).toBe('number');
+        expect(typeof res.body.data.etc).toBe('number');
+        expect(typeof res.body.data.vac).toBe('number');
+        expect(typeof res.body.data.tcpi).toBe('number');
+        expect(res.body.data.dataCompleteness.hasActualCosts).toBe(false);
       });
 
       it('should return 404 for non-existent project', async () => {

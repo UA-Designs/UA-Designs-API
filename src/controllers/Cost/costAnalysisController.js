@@ -1,5 +1,5 @@
-const { Cost, Budget, Expense, Project, Task } = require('../../models');
-const { Op, fn, col, literal } = require('sequelize');
+const { Budget, Expense, Project, Task } = require('../../models');
+const { Op } = require('sequelize');
 
 /**
  * Cost Analysis Controller
@@ -7,6 +7,128 @@ const { Op, fn, col, literal } = require('sequelize');
  * PMBOK Knowledge Area: Project Cost Management - Control Costs
  */
 class CostAnalysisController {
+  static round2(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 0;
+    return Math.round(n * 100) / 100;
+  }
+
+  static round3(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 0;
+    return Math.round(n * 1000) / 1000;
+  }
+
+  static buildCompleteness(project, tasks, expenses, totalBudget) {
+    const hasBudgetBaseline = totalBudget > 0;
+    const hasScheduleBaseline = Boolean(project?.startDate && project?.endDate);
+    const hasActualCosts = expenses.length > 0;
+    const hasProgressData = tasks.some(t => Number.isFinite(Number(t.progress)));
+    const missingFields = [];
+    if (!hasBudgetBaseline) missingFields.push('totalBudget');
+    if (!hasScheduleBaseline) missingFields.push('project.startDate', 'project.endDate');
+    if (!hasActualCosts) missingFields.push('actualCost');
+    if (!hasProgressData) missingFields.push('earnedValue');
+    return {
+      hasBudgetBaseline,
+      hasScheduleBaseline,
+      hasActualCosts,
+      hasProgressData,
+      missingFields: [...new Set(missingFields)]
+    };
+  }
+
+  static buildStatusAndNotes(dataCompleteness) {
+    const calculationStatus = dataCompleteness.missingFields.length === 0 ? 'complete' : 'partial';
+    const notes = [];
+    if (!dataCompleteness.hasBudgetBaseline) notes.push('Budget baseline is missing; budget-dependent metrics may be partial.');
+    if (!dataCompleteness.hasScheduleBaseline) notes.push('Schedule baseline dates are missing; planned value is defaulted to 0.');
+    if (!dataCompleteness.hasActualCosts) notes.push('No approved/paid actual costs found; actualCost and cost-derived indices use safe defaults.');
+    if (!dataCompleteness.hasProgressData) notes.push('Task progress data is missing; earnedValue is defaulted to 0.');
+    return { calculationStatus, notes };
+  }
+
+  static async collectEvmInputs(projectId, reportDate = new Date()) {
+    const project = await Project.findByPk(projectId);
+    if (!project) return null;
+
+    const [tasks, expenses, budgets] = await Promise.all([
+      Task.findAll({ where: { projectId } }),
+      Expense.findAll({
+        where: {
+          projectId,
+          status: { [Op.in]: ['APPROVED', 'PAID'] },
+          date: { [Op.lte]: reportDate }
+        }
+      }),
+      Budget.findAll({
+        where: { projectId, status: { [Op.in]: ['APPROVED', 'PLANNED'] } }
+      })
+    ]);
+
+    const approvedBudget = budgets
+      .filter(b => b.status === 'APPROVED')
+      .reduce((sum, b) => sum + parseFloat(b.amount || 0), 0);
+    const plannedBudget = budgets.reduce((sum, b) => sum + parseFloat(b.amount || 0), 0);
+    const totalBudget = approvedBudget > 0 ? approvedBudget : (plannedBudget > 0 ? plannedBudget : parseFloat(project.budget || 0));
+
+    const projectStart = project.startDate ? new Date(project.startDate) : null;
+    const projectEnd = project.endDate ? new Date(project.endDate) : null;
+    let plannedProgressPct = 0;
+    if (projectStart && projectEnd && projectEnd > projectStart) {
+      const totalDuration = projectEnd - projectStart;
+      const elapsedDuration = reportDate - projectStart;
+      plannedProgressPct = Math.min(100, Math.max(0, (elapsedDuration / totalDuration) * 100));
+    }
+
+    const taskProgressValues = tasks
+      .map(t => Number(t.progress))
+      .filter(v => Number.isFinite(v));
+    const actualProgressPct = taskProgressValues.length
+      ? taskProgressValues.reduce((sum, p) => sum + p, 0) / taskProgressValues.length
+      : 0;
+
+    const plannedValue = (plannedProgressPct / 100) * totalBudget;
+    const earnedValue = (actualProgressPct / 100) * totalBudget;
+    const actualCost = expenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+    const cpi = actualCost > 0 ? earnedValue / actualCost : 0;
+    const spi = plannedValue > 0 ? earnedValue / plannedValue : 0;
+    const costVariance = earnedValue - actualCost;
+    const scheduleVariance = earnedValue - plannedValue;
+    const budgetUsedPct = totalBudget > 0 ? (actualCost / totalBudget) * 100 : 0;
+    const eac = cpi > 0 ? totalBudget / cpi : totalBudget;
+    const etc = eac - actualCost;
+    const vac = totalBudget - eac;
+    const tcpiDenominator = totalBudget - actualCost;
+    const tcpi = tcpiDenominator > 0 ? (totalBudget - earnedValue) / tcpiDenominator : 0;
+
+    const dataCompleteness = CostAnalysisController.buildCompleteness(project, tasks, expenses, totalBudget);
+    const { calculationStatus, notes } = CostAnalysisController.buildStatusAndNotes(dataCompleteness);
+
+    return {
+      project,
+      tasks,
+      expenses,
+      budgets,
+      totalBudget: CostAnalysisController.round2(totalBudget),
+      plannedValue: CostAnalysisController.round2(plannedValue),
+      earnedValue: CostAnalysisController.round2(earnedValue),
+      actualCost: CostAnalysisController.round2(actualCost),
+      cpi: CostAnalysisController.round3(cpi),
+      spi: CostAnalysisController.round3(spi),
+      costVariance: CostAnalysisController.round2(costVariance),
+      scheduleVariance: CostAnalysisController.round2(scheduleVariance),
+      budgetUsedPct: CostAnalysisController.round2(budgetUsedPct),
+      eac: CostAnalysisController.round2(eac),
+      etc: CostAnalysisController.round2(etc),
+      vac: CostAnalysisController.round2(vac),
+      tcpi: CostAnalysisController.round3(tcpi),
+      dataCompleteness,
+      calculationStatus,
+      notes
+    };
+  }
+
   /**
    * Get cost overview for a project
    * GET /api/cost/analysis/overview/:projectId
@@ -15,55 +137,51 @@ class CostAnalysisController {
     try {
       const { projectId } = req.params;
 
-      // Validate project exists
-      const project = await Project.findByPk(projectId);
-      if (!project) {
+      const inputs = await CostAnalysisController.collectEvmInputs(projectId, new Date());
+      if (!inputs) {
         return res.status(404).json({
           success: false,
           message: 'Project not found'
         });
       }
 
-      // Get budgets for project
-      const budgets = await Budget.findAll({
-        where: { projectId, status: { [Op.ne]: 'CLOSED' } }
-      });
-
-      // Get expenses for project
-      const expenses = await Expense.findAll({
-        where: { projectId }
-      });
-
-      // Calculate totals
-      const totalBudget = budgets.reduce((sum, b) => sum + parseFloat(b.amount || 0), 0);
-      const totalApproved = expenses
-        .filter(e => ['APPROVED', 'PAID'].includes(e.status))
-        .reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
+      const { project, totalBudget, actualCost, costVariance, dataCompleteness, calculationStatus, notes, expenses, budgets } = inputs;
       const totalPending = expenses
         .filter(e => e.status === 'PENDING')
         .reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
       const totalPaid = expenses
         .filter(e => e.status === 'PAID')
         .reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
-
-      const costVariance = totalBudget - totalApproved;
-      const budgetUtilization = totalBudget > 0 ? (totalApproved / totalBudget) * 100 : 0;
+      const budgetUtilization = totalBudget > 0 ? (actualCost / totalBudget) * 100 : 0;
 
       res.json({
         success: true,
         data: {
           projectId,
           projectName: project.name,
+          totalBudget,
+          totalActualCost: actualCost,
+          totalCosts: actualCost,
+          variance: costVariance,
+          costVariance,
+          budgetUtilization: CostAnalysisController.round2(budgetUtilization),
+          remaining: CostAnalysisController.round2(totalBudget - actualCost),
+          totalPending: CostAnalysisController.round2(totalPending),
+          totalPaid: CostAnalysisController.round2(totalPaid),
+          isOverBudget: costVariance < 0,
           overview: {
             totalBudget,
-            totalApproved,
-            totalPending,
-            totalPaid,
-            remaining: totalBudget - totalApproved,
+            totalApproved: actualCost,
+            totalPending: CostAnalysisController.round2(totalPending),
+            totalPaid: CostAnalysisController.round2(totalPaid),
+            remaining: CostAnalysisController.round2(totalBudget - actualCost),
             costVariance,
-            budgetUtilization: Math.round(budgetUtilization * 100) / 100,
+            budgetUtilization: CostAnalysisController.round2(budgetUtilization),
             isOverBudget: costVariance < 0
           },
+          dataCompleteness,
+          calculationStatus,
+          notes,
           budgetCount: budgets.length,
           expenseCount: expenses.length
         }
@@ -138,93 +256,32 @@ class CostAnalysisController {
       const { asOfDate } = req.query;
       const reportDate = asOfDate ? new Date(asOfDate) : new Date();
 
-      // Validate project exists
-      const project = await Project.findByPk(projectId);
-      if (!project) {
+      const inputs = await CostAnalysisController.collectEvmInputs(projectId, reportDate);
+      if (!inputs) {
         return res.status(404).json({
           success: false,
           message: 'Project not found'
         });
       }
-
-      // Get tasks with cost and progress data
-      const tasks = await Task.findAll({
-        where: { projectId }
-      });
-
-      // Get approved/paid expenses
-      const expenses = await Expense.findAll({
-        where: {
-          projectId,
-          status: { [Op.in]: ['APPROVED', 'PAID'] },
-          date: { [Op.lte]: reportDate }
-        }
-      });
-
-      // Get budget
-      const budgets = await Budget.findAll({
-        where: { projectId, status: 'APPROVED' }
-      });
-      const totalBudget = budgets.reduce((sum, b) => sum + parseFloat(b.amount || 0), 0);
-
-      // Calculate EVM metrics
-      // BAC - Budget at Completion (total approved budget)
-      const BAC = totalBudget;
-
-      // Calculate Planned Value (PV) - Based on project timeline and budget
-      const projectStart = project.startDate ? new Date(project.startDate) : null;
-      const projectEnd = project.endDate ? new Date(project.endDate) : null;
-      let plannedProgress = 100;
-      
-      if (projectStart && projectEnd) {
-        const totalDuration = projectEnd - projectStart;
-        const elapsedDuration = reportDate - projectStart;
-        plannedProgress = Math.min(100, Math.max(0, (elapsedDuration / totalDuration) * 100));
-      }
-      
-      // PV - Planned Value (what should have been spent by now based on schedule)
-      const PV = (plannedProgress / 100) * BAC;
-
-      // Calculate actual progress from tasks
-      const actualProgress = tasks.length > 0
-        ? tasks.reduce((sum, t) => sum + (parseFloat(t.progress) || 0), 0) / tasks.length
-        : 0;
-
-      // EV - Earned Value (value of work actually completed)
-      const EV = (actualProgress / 100) * BAC;
-
-      // AC - Actual Cost (actual money spent)
-      const AC = expenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
-
-      // Calculate variances and indices
-      // CV - Cost Variance (positive is under budget)
-      const CV = EV - AC;
-      
-      // SV - Schedule Variance (positive is ahead of schedule)
-      const SV = EV - PV;
-
-      // CPI - Cost Performance Index (>1 is under budget)
-      const CPI = AC > 0 ? EV / AC : 1;
-
-      // SPI - Schedule Performance Index (>1 is ahead of schedule)
-      const SPI = PV > 0 ? EV / PV : 1;
-
-      // Forecasting metrics
-      // EAC - Estimate at Completion
-      const EAC = CPI > 0 ? BAC / CPI : BAC;
-
-      // ETC - Estimate to Complete
-      const ETC = EAC - AC;
-
-      // VAC - Variance at Completion
-      const VAC = BAC - EAC;
-
-      // TCPI - To Complete Performance Index (CPI needed to finish on budget)
-      const TCPI = (BAC - EV) > 0 ? (BAC - EV) / (BAC - AC) : 1;
-
-      // Percent complete
-      const percentComplete = BAC > 0 ? (EV / BAC) * 100 : 0;
-      const percentSpent = BAC > 0 ? (AC / BAC) * 100 : 0;
+      const {
+        project,
+        totalBudget,
+        plannedValue,
+        earnedValue,
+        actualCost,
+        cpi,
+        spi,
+        costVariance,
+        scheduleVariance,
+        budgetUsedPct,
+        eac,
+        etc,
+        vac,
+        tcpi,
+        dataCompleteness,
+        calculationStatus,
+        notes
+      } = inputs;
 
       res.json({
         success: true,
@@ -232,39 +289,23 @@ class CostAnalysisController {
           projectId,
           projectName: project.name,
           asOfDate: reportDate.toISOString(),
-          baseMetrics: {
-            BAC: Math.round(BAC * 100) / 100,
-            PV: Math.round(PV * 100) / 100,
-            EV: Math.round(EV * 100) / 100,
-            AC: Math.round(AC * 100) / 100
-          },
-          variances: {
-            CV: Math.round(CV * 100) / 100,
-            SV: Math.round(SV * 100) / 100,
-            costStatus: CV >= 0 ? 'Under Budget' : 'Over Budget',
-            scheduleStatus: SV >= 0 ? 'Ahead of Schedule' : 'Behind Schedule'
-          },
-          indices: {
-            CPI: Math.round(CPI * 1000) / 1000,
-            SPI: Math.round(SPI * 1000) / 1000
-          },
-          forecasts: {
-            EAC: Math.round(EAC * 100) / 100,
-            ETC: Math.round(ETC * 100) / 100,
-            VAC: Math.round(VAC * 100) / 100,
-            TCPI: Math.round(TCPI * 1000) / 1000
-          },
-          progress: {
-            plannedProgress: Math.round(plannedProgress * 100) / 100,
-            actualProgress: Math.round(actualProgress * 100) / 100,
-            percentComplete: Math.round(percentComplete * 100) / 100,
-            percentSpent: Math.round(percentSpent * 100) / 100
-          },
-          health: {
-            costHealth: CPI >= 1 ? 'Good' : CPI >= 0.9 ? 'Warning' : 'Critical',
-            scheduleHealth: SPI >= 1 ? 'Good' : SPI >= 0.9 ? 'Warning' : 'Critical',
-            overallHealth: CPI >= 1 && SPI >= 1 ? 'Good' : (CPI >= 0.9 && SPI >= 0.9) ? 'Warning' : 'Critical'
-          }
+          plannedValue,
+          earnedValue,
+          actualCost,
+          cpi,
+          spi,
+          totalBudget,
+          costVariance,
+          scheduleVariance,
+          budgetUsedPct,
+          dataCompleteness,
+          calculationStatus,
+          notes,
+          // Backward-compatible fields
+          baseMetrics: { BAC: totalBudget, PV: plannedValue, EV: earnedValue, AC: actualCost },
+          variances: { CV: costVariance, SV: scheduleVariance },
+          indices: { CPI: cpi, SPI: spi },
+          forecasts: { EAC: eac, ETC: etc, VAC: vac, TCPI: tcpi }
         }
       });
     } catch (error) {
@@ -552,95 +593,58 @@ class CostAnalysisController {
     try {
       const { projectId } = req.params;
 
-      // Validate project exists
-      const project = await Project.findByPk(projectId);
-      if (!project) {
+      const inputs = await CostAnalysisController.collectEvmInputs(projectId, new Date());
+      if (!inputs) {
         return res.status(404).json({
           success: false,
           message: 'Project not found'
         });
       }
-
-      // Get approved budgets
-      const budgets = await Budget.findAll({
-        where: { projectId, status: 'APPROVED' }
-      });
-      const totalBudget = budgets.reduce((sum, b) => sum + parseFloat(b.amount || 0), 0);
-
-      // Get all expenses
-      const expenses = await Expense.findAll({
-        where: {
-          projectId,
-          status: { [Op.in]: ['APPROVED', 'PAID'] }
-        },
-        order: [['date', 'ASC']]
-      });
-
-      if (expenses.length === 0) {
-        return res.json({
-          success: true,
-          data: {
-            projectId,
-            projectName: project.name,
-            message: 'No expense data available for forecasting',
-            budget: totalBudget,
-            forecast: null
-          }
-        });
-      }
-
-      // Calculate spending rate
-      const firstExpenseDate = new Date(expenses[0].date);
-      const lastExpenseDate = new Date(expenses[expenses.length - 1].date);
-      const daysDiff = Math.max(1, (lastExpenseDate - firstExpenseDate) / (1000 * 60 * 60 * 24));
-      
-      const totalSpent = expenses.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
-      const dailySpendingRate = totalSpent / daysDiff;
-      const weeklySpendingRate = dailySpendingRate * 7;
-      const monthlySpendingRate = dailySpendingRate * 30;
-
-      // Forecast
-      const remaining = totalBudget - totalSpent;
-      const daysUntilBudgetExhausted = dailySpendingRate > 0 ? remaining / dailySpendingRate : null;
-      const budgetExhaustionDate = daysUntilBudgetExhausted && daysUntilBudgetExhausted > 0
-        ? new Date(Date.now() + daysUntilBudgetExhausted * 24 * 60 * 60 * 1000)
-        : null;
-
-      // Project end date forecast
-      const projectEndDate = project.endDate ? new Date(project.endDate) : null;
-      let forecastedTotalCost = null;
-      
-      if (projectEndDate) {
-        const daysRemaining = Math.max(0, (projectEndDate - new Date()) / (1000 * 60 * 60 * 24));
-        forecastedTotalCost = totalSpent + (dailySpendingRate * daysRemaining);
-      }
+      const {
+        project,
+        totalBudget,
+        actualCost,
+        earnedValue,
+        cpi,
+        eac,
+        etc,
+        vac,
+        tcpi,
+        dataCompleteness,
+        calculationStatus,
+        notes
+      } = inputs;
+      const remaining = CostAnalysisController.round2(totalBudget - actualCost);
+      const spendableDenominator = totalBudget - actualCost;
+      const daysUntilBudgetExhausted = spendableDenominator > 0 && actualCost > 0 ? CostAnalysisController.round2(spendableDenominator / actualCost) : 0;
+      const message = dataCompleteness.hasActualCosts ? null : 'No approved/paid expense data available for forecasting';
 
       res.json({
         success: true,
         data: {
           projectId,
           projectName: project.name,
-          budget: Math.round(totalBudget * 100) / 100,
-          spent: Math.round(totalSpent * 100) / 100,
-          remaining: Math.round(remaining * 100) / 100,
-          spendingRates: {
-            daily: Math.round(dailySpendingRate * 100) / 100,
-            weekly: Math.round(weeklySpendingRate * 100) / 100,
-            monthly: Math.round(monthlySpendingRate * 100) / 100
-          },
+          eac,
+          etc,
+          vac,
+          tcpi,
+          totalBudget,
+          actualCost,
+          earnedValue,
+          cpi,
+          remaining,
+          daysUntilBudgetExhausted,
+          dataCompleteness,
+          calculationStatus,
+          notes,
+          message,
+          // Backward-compatible fields
+          budget: totalBudget,
+          spent: actualCost,
           forecast: {
-            daysUntilBudgetExhausted: daysUntilBudgetExhausted ? Math.round(daysUntilBudgetExhausted) : null,
-            budgetExhaustionDate: budgetExhaustionDate?.toISOString().split('T')[0] || null,
-            forecastedTotalCost: forecastedTotalCost ? Math.round(forecastedTotalCost * 100) / 100 : null,
-            projectEndDate: projectEndDate?.toISOString().split('T')[0] || null,
-            willExceedBudget: forecastedTotalCost ? forecastedTotalCost > totalBudget : null,
-            potentialOverage: forecastedTotalCost ? Math.round((forecastedTotalCost - totalBudget) * 100) / 100 : null
-          },
-          analysisBasedOn: {
-            expenseCount: expenses.length,
-            firstExpenseDate: firstExpenseDate.toISOString().split('T')[0],
-            lastExpenseDate: lastExpenseDate.toISOString().split('T')[0],
-            analyzedDays: Math.round(daysDiff)
+            forecastedTotalCost: eac,
+            willExceedBudget: eac > totalBudget,
+            potentialOverage: CostAnalysisController.round2(eac - totalBudget)
           }
         }
       });
