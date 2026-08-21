@@ -104,6 +104,95 @@ class TaskService {
     };
   }
 
+  resolveWorkingDuration(task) {
+    const explicit = parseInt(task.duration, 10);
+    if (Number.isFinite(explicit) && explicit > 0) return explicit;
+
+    const start = task.plannedStartDate || task.startDate;
+    const end = task.plannedEndDate || task.endDate;
+    if (start && end) {
+      const span = Math.ceil((new Date(end) - new Date(start)) / (1000 * 60 * 60 * 24));
+      if (Number.isFinite(span) && span > 0) return span;
+    }
+    return 1;
+  }
+
+  addUtcDays(anchor, days) {
+    const date = new Date(anchor);
+    if (Number.isNaN(date.getTime())) return null;
+    date.setUTCDate(date.getUTCDate() + Number(days || 0));
+    return date;
+  }
+
+  async loadTasksWithDependencies(projectId) {
+    return Task.findAll({
+      where: { projectId },
+      include: [
+        {
+          model: TaskDependency,
+          as: 'predecessorDependencies',
+          include: [
+            {
+              model: Task,
+              as: 'successorTask',
+              attributes: ['id', 'name', 'duration', 'plannedStartDate', 'plannedEndDate']
+            }
+          ]
+        },
+        {
+          model: TaskDependency,
+          as: 'successorDependencies',
+          include: [
+            {
+              model: Task,
+              as: 'predecessorTask',
+              attributes: ['id', 'name', 'duration', 'plannedStartDate', 'plannedEndDate']
+            }
+          ]
+        }
+      ]
+    });
+  }
+
+  /**
+   * Run CPM without persisting isCritical / official dates.
+   * Used by schedule suggestions so analysis does not mutate the Gantt.
+   */
+  async computeScheduleNetwork(projectId) {
+    const tasks = await this.loadTasksWithDependencies(projectId);
+    if (tasks.length === 0) {
+      return {
+        tasks: [],
+        graph: new Map(),
+        forwardPass: new Map(),
+        backwardPass: new Map()
+      };
+    }
+
+    const working = tasks.map((task) => {
+      const duration = this.resolveWorkingDuration(task);
+      const row = {
+        ...task.toJSON(),
+        duration,
+        predecessorDependencies: task.predecessorDependencies,
+        successorDependencies: task.successorDependencies
+      };
+      row.toJSON = function toJSON() {
+        const copy = { ...this };
+        delete copy.predecessorDependencies;
+        delete copy.successorDependencies;
+        delete copy.toJSON;
+        return copy;
+      };
+      return row;
+    });
+
+    const graph = this.buildTaskGraph(working);
+    const forwardPass = this.calculateForwardPass(graph, working);
+    const backwardPass = this.calculateBackwardPass(graph, working, forwardPass);
+    return { tasks: working, graph, forwardPass, backwardPass };
+  }
+
   /**
    * Calculate critical path for a project using CPM (Critical Path Method)
    * @param {string} projectId - Project ID
@@ -409,8 +498,11 @@ class TaskService {
       
       // Task is critical if total float is 0
       if (backwardData.totalFloat === 0) {
+        const base = typeof task.toJSON === 'function' ? task.toJSON() : { ...task };
+        delete base.predecessorDependencies;
+        delete base.successorDependencies;
         criticalTasks.push({
-          ...task.toJSON(),
+          ...base,
           earlyStart: forwardData.earlyStart,
           earlyFinish: forwardData.earlyFinish,
           lateStart: backwardData.lateStart,

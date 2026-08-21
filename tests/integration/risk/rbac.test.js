@@ -4,6 +4,7 @@
  * Key access rules under test:
  *   GET  risks/mitigations/analytics → ALL_ROLES
  *   POST/PUT risks, PATCH status     → ENGINEER_AND_ABOVE
+ *   POST /api/ai/risk/score          → ENGINEER_AND_ABOVE
  *   DELETE risks                     → MANAGER_AND_ABOVE
  *   POST assess/escalate             → MANAGER_AND_ABOVE
  *   POST/PUT/DELETE mitigations      → MANAGER_AND_ABOVE
@@ -169,6 +170,26 @@ describe('POST /api/risk/mitigations — MANAGER_AND_ABOVE', () => {
       .post('/api/risk/mitigations')
       .set('Authorization', `Bearer ${pmToken}`)
       .send({ riskId: 'test', strategy: 'MITIGATE', action: 'Test action' });
+    expect(res.status).not.toBe(403);
+  });
+});
+
+// ── POST /api/ai/risk/score — ENGINEER_AND_ABOVE ─────────────────────────────
+
+describe('POST /api/ai/risk/score — ENGINEER_AND_ABOVE', () => {
+  it('blocks SECRETARY with 403', async () => {
+    const res = await request(app)
+      .post('/api/ai/risk/score')
+      .set('Authorization', `Bearer ${staffToken}`)
+      .send({ projectId: testProject.id });
+    expect(res.status).toBe(403);
+  });
+
+  it('allows SITE_ENGINEER (not 403)', async () => {
+    const res = await request(app)
+      .post('/api/ai/risk/score')
+      .set('Authorization', `Bearer ${engineerToken}`)
+      .send({ projectId: testProject.id });
     expect(res.status).not.toBe(403);
   });
 });

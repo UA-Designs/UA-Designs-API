@@ -2,8 +2,22 @@ const taskService = require('../../services/Schedule/taskService');
 const { Task, TaskDependency, Project, User } = require('../../models');
 const { Op } = require('sequelize');
 
+const SUGGESTED_SCHEDULE_FIELDS = [
+  'suggestedStartDate',
+  'suggestedEndDate',
+  'suggestedDurationDays',
+  'suggestedIsCritical',
+  'suggestedTotalFloat',
+  'suggestedFreeFloat',
+  'suggestedModelVersion',
+  'suggestedGeneratedAt'
+];
+
 const normalizeTaskPayload = (payload = {}) => {
   const normalized = { ...payload };
+  SUGGESTED_SCHEDULE_FIELDS.forEach((field) => {
+    delete normalized[field];
+  });
   const completionCandidate = [
     payload.completedAt,
     payload.completed_at,

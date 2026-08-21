@@ -138,6 +138,39 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: true,
       comment: 'Free float time in days'
+    },
+    // CPM date suggestions — never overwrite official start/end/baseline until Apply
+    suggestedStartDate: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    suggestedEndDate: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    suggestedDurationDays: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    suggestedIsCritical: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true
+    },
+    suggestedTotalFloat: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    suggestedFreeFloat: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    suggestedModelVersion: {
+      type: DataTypes.STRING(128),
+      allowNull: true
+    },
+    suggestedGeneratedAt: {
+      type: DataTypes.DATE,
+      allowNull: true
     }
   }, {
     tableName: 'tasks',

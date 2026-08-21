@@ -47,6 +47,11 @@ const StakeholderEngagement = require('./Stakeholder/StakeholderEngagement/index
 // Audit Log
 const AuditLogDef = require('./AuditLog/index');
 
+// AI Assistant
+const AIConversationDef = require('./AI/AIConversation');
+const AIMessageDef = require('./AI/AIMessage');
+const AIActionProposalDef = require('./AI/AIActionProposal');
+
 // Initialize models with sequelize
 const ProjectModel = Project;
 const TaskModel = Task(sequelize, Sequelize);
@@ -70,6 +75,9 @@ const StakeholderModel = Stakeholder(sequelize, Sequelize);
 const CommunicationModel = Communication(sequelize, Sequelize);
 const StakeholderEngagementModel = StakeholderEngagement(sequelize, Sequelize);
 const AuditLogModel = AuditLogDef(sequelize, Sequelize);
+const AIConversationModel = AIConversationDef(sequelize, Sequelize);
+const AIMessageModel = AIMessageDef(sequelize, Sequelize);
+const AIActionProposalModel = AIActionProposalDef(sequelize, Sequelize);
 
 const SiteUsageModel = SiteUsage(sequelize, Sequelize);
 
@@ -246,6 +254,20 @@ ExpenseModel.belongsTo(User, { as: 'submitter', foreignKey: 'submittedBy' });
 User.hasMany(ExpenseModel, { as: 'approvedExpenses', foreignKey: 'approvedBy' });
 ExpenseModel.belongsTo(User, { as: 'approver', foreignKey: 'approvedBy' });
 
+// 7. AI Assistant
+User.hasMany(AIConversationModel, { as: 'aiConversations', foreignKey: 'userId' });
+AIConversationModel.belongsTo(User, { as: 'user', foreignKey: 'userId' });
+ProjectModel.hasMany(AIConversationModel, { as: 'aiConversations', foreignKey: 'projectId' });
+AIConversationModel.belongsTo(ProjectModel, { as: 'project', foreignKey: 'projectId' });
+AIConversationModel.hasMany(AIMessageModel, { as: 'messages', foreignKey: 'conversationId' });
+AIMessageModel.belongsTo(AIConversationModel, { as: 'conversation', foreignKey: 'conversationId' });
+User.hasMany(AIActionProposalModel, { as: 'aiActionProposals', foreignKey: 'userId' });
+AIActionProposalModel.belongsTo(User, { as: 'user', foreignKey: 'userId' });
+ProjectModel.hasMany(AIActionProposalModel, { as: 'aiActionProposals', foreignKey: 'projectId' });
+AIActionProposalModel.belongsTo(ProjectModel, { as: 'project', foreignKey: 'projectId' });
+AIConversationModel.hasMany(AIActionProposalModel, { as: 'actionProposals', foreignKey: 'conversationId' });
+AIActionProposalModel.belongsTo(AIConversationModel, { as: 'conversation', foreignKey: 'conversationId' });
+
 module.exports = {
   sequelize,
   Sequelize,
@@ -272,5 +294,8 @@ module.exports = {
   ResourceAllocation: ResourceAllocationModel,
   EquipmentMaintenance: EquipmentMaintenanceModel,
   AuditLog: AuditLogModel,
-  SiteUsage: SiteUsageModel
+  SiteUsage: SiteUsageModel,
+  AIConversation: AIConversationModel,
+  AIMessage: AIMessageModel,
+  AIActionProposal: AIActionProposalModel
 }; 

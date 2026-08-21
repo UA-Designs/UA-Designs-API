@@ -106,6 +106,42 @@ module.exports = (sequelize, DataTypes) => {
     notes: {
       type: DataTypes.TEXT,
       allowNull: true
+    },
+    // AI suggestion columns — never overwrite official rule-based scoring fields
+    aiProbability: {
+      type: DataTypes.FLOAT,
+      allowNull: true,
+      validate: { min: 0, max: 1 }
+    },
+    aiImpact: {
+      type: DataTypes.FLOAT,
+      allowNull: true,
+      validate: { min: 0, max: 1 }
+    },
+    aiSeverity: {
+      type: DataTypes.STRING(16),
+      allowNull: true
+    },
+    aiRiskScore: {
+      type: DataTypes.FLOAT,
+      allowNull: true
+    },
+    aiConfidence: {
+      type: DataTypes.FLOAT,
+      allowNull: true,
+      validate: { min: 0, max: 1 }
+    },
+    aiModelVersion: {
+      type: DataTypes.STRING(128),
+      allowNull: true
+    },
+    aiReasons: {
+      type: DataTypes.JSON,
+      allowNull: true
+    },
+    aiGeneratedAt: {
+      type: DataTypes.DATE,
+      allowNull: true
     }
   }, {
     tableName: 'risks',

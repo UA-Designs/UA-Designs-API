@@ -141,6 +141,9 @@ app.use('/api/analytics', require('./routes/analytics'));
 // Audit log routes (ADMIN only)
 app.use('/api/audit', require('./routes/audit'));
 
+// AI-assisted suggestions
+app.use('/api/ai', require('./routes/ai'));
+
 // Additional routes for project management
 
 // Health check
@@ -652,6 +655,9 @@ app.use('*', (req, res) => {
 // When imported by tests via require(), no TCP socket is opened so Jest can exit cleanly.
 if (require.main === module) {
   const { sequelize } = require('./models');
+  const { ensureAiRiskSuggestionColumns } = require('./database/ensureAiRiskColumns');
+  const { ensureScheduleSuggestionColumns } = require('./database/ensureScheduleSuggestionColumns');
+  const { ensureAiConversationTables } = require('./database/ensureAiConversationTables');
   const ensureRoleEnums = async () => {
     // Existing Render Postgres DBs may already have enum_users_role without new roles.
     // Add values safely so role inserts/updates work without manual SQL migration.
@@ -865,6 +871,9 @@ if (require.main === module) {
         .then(() => ensureCostsAndSiteUsageMigration())
         .then(() => ensureExpensesCostLinkMigration())
         .then(() => ensureRiskScheduleDelayMigration())
+        .then(() => ensureAiRiskSuggestionColumns(sequelize))
+        .then(() => ensureScheduleSuggestionColumns(sequelize))
+        .then(() => ensureAiConversationTables())
         .then(() => ensureScheduleBaselineTrackingMigration())
         .then(() => console.log('✅ Database connection verified (pre-seeded)'))
     : (async () => {
@@ -879,6 +888,9 @@ if (require.main === module) {
         await ensureCostsAndSiteUsageMigration();
         await ensureExpensesCostLinkMigration();
         await ensureRiskScheduleDelayMigration();
+        await ensureAiRiskSuggestionColumns(sequelize);
+        await ensureScheduleSuggestionColumns(sequelize);
+        await ensureAiConversationTables();
         await ensureScheduleBaselineTrackingMigration();
 
         const autoSeed = process.env.AUTO_SEED !== 'false' && process.env.NODE_ENV !== 'production';

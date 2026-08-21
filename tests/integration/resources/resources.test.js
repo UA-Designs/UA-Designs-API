@@ -96,6 +96,60 @@ describe('Resource Management API', () => {
 
         expect(response.status).toBe(401);
       });
+
+      it('should create a material with unit "Lot"', async () => {
+        const response = await request(app)
+          .post('/api/resources/materials')
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({
+            name: 'Mobilization Package',
+            unit: 'Lot',
+            unitCost: 50000,
+            quantity: 1,
+            projectId: testProject.id
+          });
+
+        expect(response.status).toBe(201);
+        expect(response.body.success).toBe(true);
+        expect(response.body.data.unit).toBe('Lot');
+      });
+
+      it('should create a material with unit "Lump Sum"', async () => {
+        const response = await request(app)
+          .post('/api/resources/materials')
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({
+            name: 'Temporary Works Package',
+            unit: 'Lump Sum',
+            unitCost: 80000,
+            quantity: 1,
+            projectId: testProject.id
+          });
+
+        expect(response.status).toBe(201);
+        expect(response.body.success).toBe(true);
+        expect(response.body.data.unit).toBe('Lump Sum');
+      });
+
+      it('should create a catalog material without quantity', async () => {
+        const response = await request(app)
+          .post('/api/resources/materials')
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({
+            name: 'Catalog Rebar Type A',
+            unit: 'kg',
+            unitCost: 2.35,
+            category: 'REBAR',
+            description: 'Catalog definition only',
+            projectId: testProject.id
+          });
+
+        expect(response.status).toBe(201);
+        expect(response.body.success).toBe(true);
+        expect(response.body.data.name).toBe('Catalog Rebar Type A');
+        expect(response.body.data.quantity).toBeNull();
+        expect(response.body.data.totalCost).toBeNull();
+      });
     });
 
     describe('GET /api/resources/materials', () => {
@@ -316,6 +370,28 @@ describe('Resource Management API', () => {
 
         expect(response.status).toBe(200);
         expect(response.body.data.status).toBe('DELIVERED');
+      });
+
+      it('should update material unit to "Lot"', async () => {
+        const response = await request(app)
+          .put(`/api/resources/materials/${createdMaterialId}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({ unit: 'Lot' });
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+        expect(response.body.data.unit).toBe('Lot');
+      });
+
+      it('should update material unit to "Lump Sum"', async () => {
+        const response = await request(app)
+          .put(`/api/resources/materials/${createdMaterialId}`)
+          .set('Authorization', `Bearer ${authToken}`)
+          .send({ unit: 'Lump Sum' });
+
+        expect(response.status).toBe(200);
+        expect(response.body.success).toBe(true);
+        expect(response.body.data.unit).toBe('Lump Sum');
       });
     });
 

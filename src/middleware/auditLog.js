@@ -21,6 +21,8 @@ const PATH_ENTITY_MAP = [
   // Risk
   { pattern: /\/api\/risk\/mitigations/, entity: 'MITIGATION' },
   { pattern: /\/api\/risk\/risks/, entity: 'RISK' },
+  { pattern: /\/api\/ai\/risk/, entity: 'RISK' },
+  { pattern: /\/api\/ai\/schedule/, entity: 'TASK' },
   // Stakeholders
   { pattern: /\/api\/stakeholders\/[^/]+\/communications/, entity: 'COMMUNICATION' },
   { pattern: /\/api\/stakeholders\/communications/, entity: 'COMMUNICATION' },
@@ -53,6 +55,9 @@ function resolveAction(method, path) {
   // Path-suffix based overrides (before general method check)
   if (lowerPath.endsWith('/approve') || lowerPath.includes('/bulk-approve')) return 'APPROVE';
   if (lowerPath.endsWith('/reject')) return 'REJECT';
+  if (lowerPath.includes('/ai/risk/score')) return 'UPDATE';
+  if (lowerPath.includes('/ai/schedule/apply')) return 'APPROVE';
+  if (lowerPath.includes('/ai/schedule/propose')) return 'UPDATE';
   if (lowerPath.endsWith('/escalate')) return 'ESCALATE';
   if (
     lowerPath.endsWith('/status') ||
@@ -74,9 +79,18 @@ function resolveAction(method, path) {
 }
 
 // Build a human-readable description
-function buildDescription(action, entity, name) {
+function buildDescription(action, entity, name, path) {
   const entityLabel = entity.charAt(0) + entity.slice(1).toLowerCase().replace(/_/g, ' ');
   const suffix = name ? ` '${name}'` : '';
+  if (path && String(path).toLowerCase().includes('/ai/risk/score')) {
+    return `Generated AI risk score suggestions${suffix}`;
+  }
+  if (path && String(path).toLowerCase().includes('/ai/schedule/propose')) {
+    return `Generated suggested schedule dates${suffix}`;
+  }
+  if (path && String(path).toLowerCase().includes('/ai/schedule/apply')) {
+    return `Applied suggested schedule dates${suffix}`;
+  }
   switch (action) {
     case 'CREATE':          return `Created ${entityLabel}${suffix}`;
     case 'UPDATE':          return `Updated ${entityLabel}${suffix}`;
@@ -96,6 +110,9 @@ function buildDescription(action, entity, name) {
 // Determine if a given request should be logged
 function shouldLog(method, path) {
   const upper = method.toUpperCase();
+  const lowerPath = String(path || '').toLowerCase();
+  // Chat Q&A is a read-style query; skip CREATE noise. AI scoring still logs via /api/ai/risk/score.
+  if (lowerPath.includes('/ai/chat')) return false;
   // Always log state-changing methods
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(upper)) return true;
   // Never log GETs (read-only / too noisy)
@@ -104,9 +121,11 @@ function shouldLog(method, path) {
 
 // Extract the primary record id from the response body
 function extractEntityId(responseBody) {
-  if (!responseBody || !responseBody.data) return null;
+  if (!responseBody) return null;
+  if (responseBody.projectId) return responseBody.projectId;
+  if (!responseBody.data) return null;
   const d = responseBody.data;
-  return d.id || d.budgetId || d.expenseId || null;
+  return d.id || d.budgetId || d.expenseId || d.projectId || null;
 }
 
 // Extract a friendly record name from request body or response body
@@ -128,7 +147,7 @@ function extractName(reqBody, responseBody) {
 // Response-intercepting audit log middleware
 const auditLogMiddleware = (req, res, next) => {
   // Skip GET requests (read-only — not state-changing)
-  if (!shouldLog(req.method, req.path)) return next();
+  if (!shouldLog(req.method, req.originalUrl || req.path)) return next();
 
   const originalJson = res.json.bind(res);
 
@@ -143,7 +162,7 @@ const auditLogMiddleware = (req, res, next) => {
     const entity = resolveEntity(path);
     const action = resolveAction(method, path);
     const name = extractName(req.body, body);
-    const description = buildDescription(action, entity, name);
+    const description = buildDescription(action, entity, name, path);
     const entityId = extractEntityId(body);
 
     const userId = req.user ? req.user.id : null;

@@ -1,6 +1,25 @@
 const { Op } = require('sequelize');
 const { Risk, RiskMitigation, RiskCategory, Project, User, Task, sequelize } = require('../../models');
 
+const AI_SUGGESTION_FIELDS = [
+  'aiProbability',
+  'aiImpact',
+  'aiSeverity',
+  'aiRiskScore',
+  'aiConfidence',
+  'aiModelVersion',
+  'aiReasons',
+  'aiGeneratedAt'
+];
+
+function stripAiSuggestionFields(data = {}) {
+  const cleaned = { ...data };
+  for (const field of AI_SUGGESTION_FIELDS) {
+    delete cleaned[field];
+  }
+  return cleaned;
+}
+
 class RiskService {
   getRiskIncludes() {
     return [
@@ -188,7 +207,7 @@ class RiskService {
     const riskScore = this.calculateRiskScore(data.probability, data.impact);
     const severity = data.severity || this.assignSeverity(riskScore);
     const linkedTaskIds = Array.isArray(data.linkedTaskIds) ? data.linkedTaskIds : undefined;
-    const payload = { ...data };
+    const payload = stripAiSuggestionFields(data);
     delete payload.linkedTaskIds;
 
     if (payload.scheduleImpactDays === undefined) {
@@ -223,7 +242,7 @@ class RiskService {
     const risk = await Risk.findByPk(id);
     if (!risk) return null;
 
-    const updateData = { ...data };
+    const updateData = stripAiSuggestionFields(data);
     const linkedTaskIds = Object.prototype.hasOwnProperty.call(data, 'linkedTaskIds') ? data.linkedTaskIds : undefined;
     delete updateData.linkedTaskIds;
 

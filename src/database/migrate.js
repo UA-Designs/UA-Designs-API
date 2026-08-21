@@ -1,4 +1,7 @@
 const { sequelize } = require('../models');
+const { ensureAiRiskSuggestionColumns } = require('./ensureAiRiskColumns');
+const { ensureScheduleSuggestionColumns } = require('./ensureScheduleSuggestionColumns');
+const { ensureAiConversationTables } = require('./ensureAiConversationTables');
 
 async function migrate() {
   try {
@@ -6,6 +9,9 @@ async function migrate() {
     
     // Sync all models with database
     await sequelize.sync({ force: true });
+    await ensureAiRiskSuggestionColumns(sequelize);
+    await ensureScheduleSuggestionColumns(sequelize);
+    await ensureAiConversationTables();
     
     console.log('✅ Database migration completed successfully!');
     console.log('📊 Tables created:');

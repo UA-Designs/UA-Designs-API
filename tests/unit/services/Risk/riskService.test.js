@@ -103,6 +103,30 @@ describe('RiskService', () => {
 
       expect(risk.identifiedDate).toBeTruthy();
     });
+
+    it('should ignore AI suggestion fields on create so rule-based scores stay authoritative', async () => {
+      const risk = await riskService.create({
+        title: 'AI Field Strip Risk',
+        probability: 0.4,
+        impact: 0.5,
+        projectId: '00000000-0000-0000-0000-000000000001',
+        aiProbability: 0.99,
+        aiImpact: 0.99,
+        aiSeverity: 'CRITICAL',
+        aiRiskScore: 0.98,
+        aiConfidence: 0.9,
+        aiModelVersion: 'should-not-persist'
+      });
+
+      expect(parseFloat(risk.probability)).toBeCloseTo(0.4, 4);
+      expect(parseFloat(risk.impact)).toBeCloseTo(0.5, 4);
+      expect(parseFloat(risk.riskScore)).toBeCloseTo(0.2, 4);
+      expect(risk.severity).toBe('MEDIUM');
+      expect(risk.aiProbability).toBeNull();
+      expect(risk.aiImpact).toBeNull();
+      expect(risk.aiSeverity).toBeNull();
+      expect(risk.aiModelVersion).toBeNull();
+    });
   });
 
   describe('getAll', () => {
@@ -203,6 +227,22 @@ describe('RiskService', () => {
     it('should return null for non-existent id', async () => {
       const result = await riskService.update('00000000-0000-0000-0000-000000000000', { title: 'X' });
       expect(result).toBeNull();
+    });
+
+    it('should not overwrite official scores when AI suggestion fields are sent', async () => {
+      const before = await riskService.getById(riskId);
+      const updated = await riskService.update(riskId, {
+        aiProbability: 0.11,
+        aiImpact: 0.22,
+        aiSeverity: 'LOW',
+        aiRiskScore: 0.02
+      });
+
+      expect(parseFloat(updated.probability)).toBeCloseTo(parseFloat(before.probability), 4);
+      expect(parseFloat(updated.impact)).toBeCloseTo(parseFloat(before.impact), 4);
+      expect(parseFloat(updated.riskScore)).toBeCloseTo(parseFloat(before.riskScore), 4);
+      expect(updated.severity).toBe(before.severity);
+      expect(updated.aiProbability).toBeNull();
     });
   });
 

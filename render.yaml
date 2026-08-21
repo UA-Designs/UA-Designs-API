@@ -23,6 +23,18 @@ services:
         generateValue: true
       - key: CORS_ORIGIN
         sync: false
+      - key: AI_RISK_MODE
+        value: stub
+      - key: AI_RISK_INFERENCE_URL
+        sync: false
+      - key: AI_API_KEY
+        sync: false
+      - key: AI_MODEL
+        value: gpt-4o-mini
+      - key: AI_PROVIDER
+        value: openai
+      - key: AI_BASE_URL
+        sync: false
 
 databases:
   - name: ua-designs-db
