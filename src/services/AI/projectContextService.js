@@ -58,7 +58,7 @@ class ProjectContextService {
       Risk.count({
         where: {
           projectId: project.id,
-          status: { [Op.notIn]: ['CLOSED', 'CANCELLED'] }
+          status: { [Op.ne]: 'CLOSED' }
         }
       }),
       Budget.sum('amount', { where: { projectId: project.id } }),
