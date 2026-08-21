@@ -14,7 +14,7 @@ const allocationService = require('../../Resources/allocationService');
 const scheduleImpactService = require('../scheduleImpactService');
 const aiScheduleService = require('../aiScheduleService');
 const { ALLOWED_TOOL_NAMES } = require('./toolDefinitions');
-const { formatDate, jsonNumber, truncateText, isUuid, startOfUtcDay } = require('../aiUtils');
+const { formatDate, jsonNumber, truncateText, isUuid, startOfUtcDay, todayIso, addIsoDays, laterIsoDate, isoDaySpan } = require('../aiUtils');
 const { badRequest, notFound } = require('../aiErrors');
 const {
   canManageTasks,
@@ -388,22 +388,15 @@ function stripReason(args) {
   return { reason, parameters: rest };
 }
 
-function addIsoDays(isoDate, days) {
-  const date = new Date(`${isoDate}T00:00:00.000Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return formatDate(date);
-}
-
 function recommendedCreateTaskFields(project, args) {
-  const startDate = args.startDate || formatDate(project && project.startDate) || formatDate(new Date());
-  let duration = args.duration;
-  let endDate = args.endDate || null;
-  if (!duration && startDate && endDate) {
-    const days = Math.ceil((new Date(`${endDate}T00:00:00.000Z`) - new Date(`${startDate}T00:00:00.000Z`)) / (1000 * 60 * 60 * 24));
-    duration = Number.isFinite(days) && days > 0 ? days : 5;
-  }
-  if (!duration) duration = 5;
+  const today = todayIso();
+  const startDate = laterIsoDate(args.startDate || formatDate(project && project.startDate), today);
+  let duration = Number(args.duration);
+  if (!Number.isFinite(duration) || duration < 1) duration = 5;
+  let endDate = args.endDate ? laterIsoDate(args.endDate, today) : null;
+  if (endDate && endDate <= startDate) endDate = null;
   if (!endDate) endDate = addIsoDays(startDate, duration);
+  else duration = isoDaySpan(startDate, endDate);
   return {
     description: args.description || null,
     startDate,

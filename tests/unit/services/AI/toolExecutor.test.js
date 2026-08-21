@@ -110,6 +110,22 @@ describe('toolExecutor', () => {
     expect(result.data.parameters.startDate).toBeTruthy();
     expect(result.data.parameters.endDate).toBeTruthy();
     expect(result.data.parameters.duration).toBe(5);
+    expect(result.data.parameters.startDate >= new Date().toISOString().slice(0, 10)).toBe(true);
+  });
+
+  it('clamps historical create_task dates forward to today', async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const result = await executeTool({
+      name: 'create_task',
+      arguments: {
+        name: 'Site inspection',
+        startDate: '2024-03-01',
+        endDate: '2024-03-10'
+      }
+    }, ctx());
+    expect(result.data.parameters.startDate).toBe(today);
+    expect(result.data.parameters.endDate >= today).toBe(true);
+    expect(result.data.parameters.endDate > result.data.parameters.startDate).toBe(true);
   });
 
   it('assigns to the current user when assign_task omits assignedTo', async () => {

@@ -33,6 +33,7 @@ describe('projectContextService', () => {
     expect(context.project.name).toBe('Harbor Retrofit');
     expect(context.snapshot.taskCount).toBeGreaterThanOrEqual(1);
     expect(context.snapshot.recentTasks.length).toBeGreaterThan(0);
+    expect(context.today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(JSON.stringify(context)).not.toMatch(/SELECT /i);
   });
 });

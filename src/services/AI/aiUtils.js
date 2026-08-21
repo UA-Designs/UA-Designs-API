@@ -66,6 +66,28 @@ function startOfUtcDay(date = new Date()) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
 
+function todayIso() {
+  return formatDate(startOfUtcDay());
+}
+
+function addIsoDays(isoDate, days) {
+  const date = new Date(`${isoDate}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return formatDate(date);
+}
+
+function laterIsoDate(isoDate, floorIso) {
+  if (!isoDate) return floorIso;
+  return isoDate < floorIso ? floorIso : isoDate;
+}
+
+function isoDaySpan(startIso, endIso) {
+  const start = new Date(`${startIso}T00:00:00.000Z`);
+  const end = new Date(`${endIso}T00:00:00.000Z`);
+  const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+  return Number.isFinite(days) && days > 0 ? days : 1;
+}
+
 module.exports = {
   isUuid,
   formatDate,
@@ -75,5 +97,9 @@ module.exports = {
   compactJson,
   wrapUntrusted,
   parseJsonSafe,
-  startOfUtcDay
+  startOfUtcDay,
+  todayIso,
+  addIsoDays,
+  laterIsoDate,
+  isoDaySpan
 };

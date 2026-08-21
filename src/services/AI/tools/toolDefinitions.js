@@ -157,8 +157,8 @@ const WRITE_TOOLS = [
         properties: {
           name: { type: 'string' },
           description: { type: 'string', description: 'Short recommended description. Write one yourself; do not ask the user.' },
-          startDate: { type: 'string', description: 'Optional recommended ISO date. Infer from the project window; do not ask.' },
-          endDate: { type: 'string', description: 'Optional recommended ISO date. Infer from the project window; do not ask.' },
+          startDate: { type: 'string', description: 'Optional recommended ISO date. Must be today or later. Never use past/historical project dates.' },
+          endDate: { type: 'string', description: 'Optional recommended ISO date. Must be on or after startDate and not in the past.' },
           duration: { type: 'integer', description: 'Optional duration in days. Infer a typical duration; do not ask.' },
           priority: { type: 'string', enum: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'], description: 'Default MEDIUM unless the user said otherwise.' },
           assignedTo: { type: 'string', description: 'Optional user UUID. Omit to leave unassigned.' },

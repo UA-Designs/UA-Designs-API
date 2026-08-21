@@ -80,6 +80,7 @@ class ProjectContextService {
         targetEndDate: formatDate(project.endDate),
         clientName: project.clientName || null
       },
+      today: formatDate(today),
       snapshot: {
         taskCount,
         completedTaskCount: completedCount,
