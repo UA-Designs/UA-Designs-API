@@ -66,7 +66,7 @@ class ProjectContextService {
       ResourceAllocation.count({ where: { projectId: project.id } })
     ]);
 
-    return {
+    const context = {
       project: {
         id: project.id,
         name: project.name,
@@ -93,8 +93,24 @@ class ProjectContextService {
         expenseTotal: jsonNumber(expenseAgg, 2),
         resourceAllocationCount: allocationCount
       },
-      note: 'This is a compact snapshot. Call tools for authoritative task, cost, risk, resource, or schedule details. Do not assume omitted records do not exist.'
+      note: 'This is a compact snapshot. Call tools for authoritative task, cost, risk, resource, schedule, or forecast details. Do not assume omitted records do not exist. Do not calculate CPI, SPI, EAC, ETC, VAC, or forecast dates yourself.'
     };
+
+    return this.attachForecast(context, project);
+  }
+
+  async attachForecast(context, project) {
+    try {
+      const forecastService = require('../Forecast/forecastService');
+      context.forecast = await forecastService.getCompactSummary(project.id);
+    } catch (error) {
+      context.forecast = {
+        available: false,
+        message: 'Forecast engine could not produce a summary for this project.',
+        error: error.message
+      };
+    }
+    return context;
   }
 }
 

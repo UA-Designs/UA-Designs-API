@@ -8,6 +8,7 @@ const INTENTS = {
   SCHEDULE_PROPOSE: 'schedule_propose',
   SCHEDULE_APPLY: 'schedule_apply',
   COST_FORECAST: 'cost_forecast',
+  PROJECT_FORECAST: 'project_forecast',
   RISK_SUMMARY: 'risk_summary',
   FALLBACK: 'fallback'
 };
@@ -66,7 +67,9 @@ function detectIntent(message) {
   const hasSchedule = hasEstimatedSchedule || hasWord(text, 'schedule');
   const hasCost = hasWord(text, 'cost') || hasWord(text, 'costs');
   const hasEvm = hasWord(text, 'evm');
-  const hasForecast = hasWord(text, 'forecast');
+  const hasForecast = hasWord(text, 'forecast') || text.includes('what if') || text.includes('what-if') || text.includes('at risk');
+  const hasFinish = text.includes('when will') || text.includes('finish') || text.includes('completion date');
+  const hasResourceNeed = text.includes('how many workers') || text.includes('resources will we need');
 
   if (wantsScheduleApply(message)) return INTENTS.SCHEDULE_APPLY;
   if (wantsSchedulePropose(message)) return INTENTS.SCHEDULE_PROPOSE;
@@ -74,6 +77,10 @@ function detectIntent(message) {
   // Specific risk phrases beat a generic "schedule" overlap ("risk impact on schedule")
   if (hasTopRisks || hasRiskImpact) {
     return INTENTS.RISK_SUMMARY;
+  }
+
+  if ((hasForecast && !hasCost && !hasEvm) || hasFinish || hasResourceNeed) {
+    return INTENTS.PROJECT_FORECAST;
   }
 
   // Requested order: schedule → cost/EVM/forecast → risk → fallback

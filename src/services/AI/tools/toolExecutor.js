@@ -4,7 +4,8 @@ const {
   User,
   Material,
   Labor,
-  Equipment
+  Equipment,
+  Project
 } = require('../../../models');
 const taskService = require('../../Schedule/taskService');
 const riskService = require('../../Risk/riskService');
@@ -13,6 +14,7 @@ const teamService = require('../../Resources/teamService');
 const allocationService = require('../../Resources/allocationService');
 const scheduleImpactService = require('../scheduleImpactService');
 const aiScheduleService = require('../aiScheduleService');
+const forecastService = require('../../Forecast/forecastService');
 const { ALLOWED_TOOL_NAMES } = require('./toolDefinitions');
 const { formatDate, jsonNumber, truncateText, isUuid, startOfUtcDay, todayIso, addIsoDays, laterIsoDate, isoDaySpan } = require('../aiUtils');
 const { badRequest, notFound } = require('../aiErrors');
@@ -324,7 +326,92 @@ async function getProjectBudget(ctx) {
       remaining: jsonNumber(forecast.remaining, 2),
       forecastedTotalCost: jsonNumber(forecast.forecast && forecast.forecast.forecastedTotalCost, 2),
       willExceedBudget: forecast.forecast ? forecast.forecast.willExceedBudget : null
+    },
+    note: 'For the official deterministic forecast used by the dashboard and AI explanations, call get_project_forecast instead of recalculating these metrics.'
+  };
+}
+
+async function getProjectForecast(ctx) {
+  return forecastService.getCompactSummary(ctx.project.id);
+}
+
+async function getForecastHistory(ctx) {
+  const history = await forecastService.getHistory(ctx.project.id);
+  return {
+    source: 'ForecastService.getHistory',
+    count: history.count,
+    snapshots: (history.snapshots || []).map((item) => ({
+      id: item.id,
+      forecastDate: formatDate(item.forecastDate),
+      costForecastValue: jsonNumber(item.costForecastValue, 2),
+      scheduleForecastDate: item.scheduleForecastDate || null,
+      progressForecastValue: jsonNumber(item.progressForecastValue, 2),
+      status: item.status,
+      methodology: item.methodology
+    })),
+    costTrend: history.costTrend
+  };
+}
+
+async function getAtRiskProjects() {
+  const projects = await Project.findAll({
+    where: { status: { [Op.in]: ['planning', 'active', 'on_hold'] } },
+    attributes: ['id', 'name', 'status'],
+    limit: 50,
+    order: [['updatedAt', 'DESC']]
+  });
+  const atRisk = [];
+  for (const project of projects) {
+    const forecast = await forecastService.getCompactSummary(project.id);
+    if (!forecast) continue;
+    if (forecast.overallStatus !== 'AT_RISK' && !(forecast.alerts || []).some((item) => item.severity === 'HIGH')) {
+      continue;
     }
+    atRisk.push({
+      projectId: project.id,
+      name: project.name,
+      status: project.status,
+      overallStatus: forecast.overallStatus,
+      alerts: (forecast.alerts || []).map((item) => ({
+        type: item.type,
+        severity: item.severity,
+        title: item.title
+      }))
+    });
+  }
+  return {
+    source: 'ForecastService',
+    count: atRisk.length,
+    projects: atRisk
+  };
+}
+
+async function runWhatIfForecast(ctx, args) {
+  const result = await forecastService.runScenario(ctx.project.id, args);
+  if (result && result.error === 'UNKNOWN_SCENARIO') {
+    throw invalidParams(result.message);
+  }
+  return {
+    source: 'ForecastService.runScenario (in-memory; official records unchanged)',
+    resultKind: 'SCENARIO / WHAT-IF',
+    officialRecordsUnchanged: true,
+    scenarioType: result.scenarioType,
+    applied: result.applied,
+    error: result.error || null,
+    message: result.message || null,
+    baseline: result.baseline ? {
+      overallStatus: result.baseline.overallStatus,
+      estimateAtCompletion: jsonNumber(result.baseline.costForecast.estimateAtCompletion, 2),
+      forecastCompletionDate: result.baseline.scheduleForecast.forecastCompletionDate,
+      delayDays: result.baseline.scheduleForecast.delayDays
+    } : null,
+    scenario: result.scenario ? {
+      overallStatus: result.scenario.overallStatus,
+      estimateAtCompletion: jsonNumber(result.scenario.costForecast.estimateAtCompletion, 2),
+      forecastCompletionDate: result.scenario.scheduleForecast.forecastCompletionDate,
+      delayDays: result.scenario.scheduleForecast.delayDays,
+      additionalWorkersNeeded: result.scenario.resourceForecast.additionalWorkersNeeded
+    } : null
   };
 }
 
@@ -504,6 +591,10 @@ const HANDLERS = {
   get_project_resources: getProjectResources,
   get_project_risks: getProjectRisks,
   get_project_budget: getProjectBudget,
+  get_project_forecast: getProjectForecast,
+  get_forecast_history: getForecastHistory,
+  get_at_risk_projects: getAtRiskProjects,
+  run_what_if_forecast: runWhatIfForecast,
   analyze_schedule_impact: analyzeScheduleImpact,
   propose_schedule: proposeSchedule,
   apply_suggested_schedule: proposeApplySchedule,

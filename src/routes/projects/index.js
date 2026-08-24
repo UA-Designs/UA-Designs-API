@@ -358,6 +358,52 @@ router.get('/:id/dashboard', authenticateToken, async (req, res) => {
       }
     };
 
+    try {
+      const forecastService = require('../../services/Forecast/forecastService');
+      const forecast = await forecastService.generate(id, { persist: false });
+      dashboardData.forecasting = {
+        overallStatus: forecast.overallStatus,
+        confidenceLevel: forecast.confidenceLevel,
+        dataQuality: forecast.dataQuality,
+        cost: {
+          budget: forecast.costForecast.budgetAtCompletion,
+          actualCost: forecast.costForecast.actualCost,
+          forecastFinalCost: forecast.costForecast.estimateAtCompletion,
+          expectedOverrun: forecast.costForecast.expectedOverrun,
+          cpi: forecast.costForecast.costPerformanceIndex,
+          status: forecast.costForecast.status
+        },
+        schedule: {
+          plannedCompletion: forecast.scheduleForecast.baselineCompletionDate,
+          forecastCompletion: forecast.scheduleForecast.forecastCompletionDate,
+          expectedDelay: forecast.scheduleForecast.delayDays,
+          spi: forecast.scheduleForecast.schedulePerformanceIndex,
+          status: forecast.scheduleForecast.status
+        },
+        progress: {
+          currentProgress: forecast.progressForecast.currentProgress,
+          plannedProgress: forecast.progressForecast.plannedProgress,
+          forecastProgress: forecast.progressForecast.forecastProgress,
+          trend: forecast.progressForecast.trend
+        },
+        resources: {
+          currentResources: forecast.resourceForecast.currentResources,
+          forecastRequirement: forecast.resourceForecast.requiredResources,
+          shortage: forecast.resourceForecast.shortage,
+          surplus: forecast.resourceForecast.surplus,
+          utilization: forecast.resourceForecast.utilization
+        },
+        alerts: forecast.alerts,
+        charts: forecast.charts
+      };
+    } catch (forecastError) {
+      console.error('Dashboard forecast enrichment error:', forecastError);
+      dashboardData.forecasting = {
+        overallStatus: 'UNAVAILABLE',
+        message: 'Forecast could not be generated for this project.'
+      };
+    }
+
     res.json({
       success: true,
       data: dashboardData

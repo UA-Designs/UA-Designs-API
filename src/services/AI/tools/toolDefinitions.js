@@ -115,6 +115,52 @@ const READ_TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'get_project_forecast',
+      description: 'Get deterministic cost, schedule, progress, and resource forecasts plus alerts from the forecasting engine. Do not calculate CPI, SPI, EAC, ETC, VAC, or forecast dates yourself.',
+      parameters: { type: 'object', properties: {}, additionalProperties: false }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_forecast_history',
+      description: 'Get saved forecast snapshots for this project so you can explain how the forecast changed over time.',
+      parameters: { type: 'object', properties: {}, additionalProperties: false }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_at_risk_projects',
+      description: 'List active projects whose deterministic forecast status is at risk. Use when the user asks which projects are at risk.',
+      parameters: { type: 'object', properties: {}, additionalProperties: false }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'run_what_if_forecast',
+      description: 'Run an in-memory what-if scenario through the forecasting engine. Official project records are not changed. Label results as SCENARIO / WHAT-IF.',
+      parameters: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['scenarioType'],
+        properties: {
+          scenarioType: {
+            type: 'string',
+            enum: ['ADD_WORKERS', 'DELAY_TASK', 'MATERIAL_COST_INCREASE', 'REDUCE_REMAINING_DURATION']
+          },
+          workersToAdd: { type: 'number', description: 'Workers to add for ADD_WORKERS' },
+          taskId: { type: 'string', description: 'Task UUID for DELAY_TASK' },
+          delayDays: { type: 'number', description: 'Days of delay for DELAY_TASK' },
+          percent: { type: 'number', description: 'Percent change for MATERIAL_COST_INCREASE or REDUCE_REMAINING_DURATION' }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'analyze_schedule_impact',
       description: 'Run the deterministic scheduling engine to calculate what happens if a task is delayed. Do not estimate dates yourself.',
       parameters: {

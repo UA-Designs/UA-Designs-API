@@ -211,6 +211,16 @@ The first user registered gets full access. Additional users are registered by a
 | GET | `/analytics/project/:id` | Auth | Project analytics |
 | GET | `/audit` | Admin | Audit log |
 
+### Forecasting
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| GET | `/forecast/projects/:projectId` | Auth | Deterministic cost/schedule/progress/resource forecast |
+| GET | `/forecast/projects/:projectId/history` | Auth | Saved forecast snapshots |
+| POST | `/forecast/projects/:projectId/generate` | Engineer+ | Generate and persist a forecast snapshot |
+| POST | `/forecast/projects/:projectId/scenarios` | Engineer+ | In-memory what-if forecast |
+
+See [docs/forecasting.md](docs/forecasting.md) for formulas, thresholds, and AI integration.
+
 ### Users
 | Method | Endpoint | Access | Description |
 |--------|----------|--------|-------------|
@@ -262,7 +272,8 @@ src/
 ├── config/            # Database configuration
 ├── controllers/       # Request handlers
 │   ├── Analytics/
-│   ├── Cost/          # Budget, cost, expense controllers
+│   ├── Cost/
+│   ├── Forecast/      # Deterministic project forecasting
 │   ├── Resources/
 │   ├── Risk/
 │   ├── Schedule/
@@ -282,6 +293,7 @@ src/
 │   ├── Schedule/
 │   ├── Resources/
 │   ├── Stakeholder/
+│   ├── Forecast/
 │   └── AuditLog/
 ├── routes/            # Express route definitions
 ├── services/          # Business logic layer

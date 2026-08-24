@@ -13,7 +13,11 @@ describe('chatIntentRouter', () => {
     it('maps cost / EVM / forecast to cost_forecast', () => {
       expect(detectIntent('What is the cost variance?')).toBe(INTENTS.COST_FORECAST);
       expect(detectIntent('Give me the EVM metrics')).toBe(INTENTS.COST_FORECAST);
-      expect(detectIntent('What is the forecast?')).toBe(INTENTS.COST_FORECAST);
+    });
+
+    it('maps project forecast questions to project_forecast', () => {
+      expect(detectIntent('What is the forecast?')).toBe(INTENTS.PROJECT_FORECAST);
+      expect(detectIntent('When will the project finish?')).toBe(INTENTS.PROJECT_FORECAST);
     });
 
     it('maps risk phrases to risk_summary', () => {

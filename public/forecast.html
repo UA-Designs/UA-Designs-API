@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Project Forecasting - UA Designs PMS</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; color: #2c3e50; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .header { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+    .nav { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .nav a { background: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; }
+    .card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+    .metric h3 { margin: 0; font-size: 22px; }
+    .metric p { margin: 6px 0 0; color: #666; }
+    .status { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+    .ON_TRACK, .FORECAST_AVAILABLE, .SURPLUS { background: #d4edda; color: #155724; }
+    .AT_RISK { background: #fff3cd; color: #856404; }
+    .OVER_BUDGET, .DELAYED, .SHORTAGE, .HIGH { background: #f8d7da; color: #721c24; }
+    .INSUFFICIENT_DATA, .UNKNOWN { background: #e2e3e5; color: #383d41; }
+    input, select, button { padding: 8px 10px; margin: 4px 4px 4px 0; }
+    button { background: #3498db; color: white; border: 0; border-radius: 4px; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid #eee; }
+    .error { color: #c0392b; }
+    svg { width: 100%; height: 180px; background: #fafafa; border: 1px solid #eee; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Project Forecasting</h1>
+      <p>Deterministic cost, schedule, progress, and resource forecasts from live project data. The AI assistant explains these numbers; it does not calculate them.</p>
+    </div>
+    <div class="nav">
+      <a href="/">Dashboard</a>
+      <a href="/projects">Projects</a>
+      <a href="/forecast">Forecasting</a>
+      <a href="/api/health">API Health</a>
+    </div>
+
+    <div class="card">
+      <h2>Sign in</h2>
+      <input id="email" placeholder="Email" value="admin@uadesigns.com">
+      <input id="password" type="password" placeholder="Password" value="password123">
+      <button id="login">Login</button>
+      <select id="projectSelect"><option value="">Select a project</option></select>
+      <button id="load">Load forecast</button>
+      <button id="save">Save snapshot</button>
+      <p id="authStatus"></p>
+    </div>
+
+    <div id="quality" class="card" hidden></div>
+    <div id="overview" class="card" hidden></div>
+    <div id="charts" class="card" hidden></div>
+    <div id="alerts" class="card" hidden></div>
+    <div id="history" class="card" hidden></div>
+  </div>
+
+  <script>
+    const state = { token: localStorage.getItem('pmsToken') || '', projectId: '' };
+
+    function money(n) {
+      if (n == null || Number.isNaN(Number(n))) return 'n/a';
+      return '₱' + Number(n).toLocaleString();
+    }
+
+    async function api(path, options = {}) {
+      const res = await fetch(path, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: state.token ? 'Bearer ' + state.token : '',
+          ...(options.headers || {})
+        }
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message || ('Request failed: ' + res.status));
+      return body;
+    }
+
+    async function login() {
+      const body = await api('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: document.getElementById('email').value,
+          password: document.getElementById('password').value
+        })
+      });
+      state.token = body.data?.token || body.token;
+      localStorage.setItem('pmsToken', state.token);
+      document.getElementById('authStatus').textContent = 'Signed in';
+      await loadProjects();
+    }
+
+    async function loadProjects() {
+      const body = await api('/api/projects?limit=50');
+      const projects = body.data?.projects || [];
+      const select = document.getElementById('projectSelect');
+      select.innerHTML = '<option value="">Select a project</option>' + projects.map((p) =>
+        `<option value="${p.id}">${p.name}</option>`
+      ).join('');
+    }
+
+    function metricCard(title, value, status) {
+      return `<div class="metric"><h3>${value}</h3><p>${title}</p>${status ? `<span class="status ${status}">${status}</span>` : ''}</div>`;
+    }
+
+    function polyline(series, key, color, width, height) {
+      const values = series.map((p) => Number(p[key])).filter(Number.isFinite);
+      if (values.length < 2) return '';
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const span = max - min || 1;
+      const pts = series.map((p, i) => {
+        const x = (i / (series.length - 1)) * (width - 20) + 10;
+        const y = height - 10 - ((Number(p[key]) - min) / span) * (height - 20);
+        return x + ',' + y;
+      }).join(' ');
+      return `<polyline fill="none" stroke="${color}" stroke-width="2" points="${pts}"></polyline>`;
+    }
+
+    async function loadForecast() {
+      state.projectId = document.getElementById('projectSelect').value;
+      if (!state.projectId) throw new Error('Select a project');
+      const [forecastBody, historyBody] = await Promise.all([
+        api('/api/forecast/projects/' + state.projectId),
+        api('/api/forecast/projects/' + state.projectId + '/history')
+      ]);
+      const f = forecastBody.data;
+      const q = f.dataQuality || {};
+      document.getElementById('quality').hidden = false;
+      document.getElementById('quality').innerHTML = q.sufficientData
+        ? `<h2>Data quality</h2><p>Sufficient data for a deterministic forecast. Methodology is engine-generated, not AI-generated.</p>`
+        : `<h2>Data quality</h2><p class="error">Forecast is limited because of missing data: ${(q.missingData || []).join(', ') || 'unknown'}.</p>`;
+
+      document.getElementById('overview').hidden = false;
+      document.getElementById('overview').innerHTML = `
+        <h2>Forecast overview</h2>
+        <div class="grid">
+          ${metricCard('Budget', money(f.costForecast.budgetAtCompletion), f.costForecast.status)}
+          ${metricCard('Actual cost', money(f.costForecast.actualCost))}
+          ${metricCard('Forecast final cost', money(f.costForecast.estimateAtCompletion))}
+          ${metricCard('Expected overrun', money(f.costForecast.expectedOverrun))}
+          ${metricCard('CPI', f.costForecast.costPerformanceIndex ?? 'n/a', f.costForecast.status)}
+          ${metricCard('Planned completion', f.scheduleForecast.baselineCompletionDate || 'n/a')}
+          ${metricCard('Forecast completion', f.scheduleForecast.forecastCompletionDate || 'n/a', f.scheduleForecast.status)}
+          ${metricCard('Expected delay (days)', f.scheduleForecast.delayDays ?? 'n/a')}
+          ${metricCard('SPI', f.scheduleForecast.schedulePerformanceIndex ?? 'n/a')}
+          ${metricCard('Current progress', (f.progressForecast.currentProgress ?? 'n/a') + '%')}
+          ${metricCard('Planned progress', (f.progressForecast.plannedProgress ?? 'n/a') + '%')}
+          ${metricCard('Forecast progress', (f.progressForecast.forecastProgress ?? 'n/a') + '%')}
+          ${metricCard('Progress trend', f.progressForecast.trend || 'n/a')}
+          ${metricCard('Current resources', f.resourceForecast.currentResources ?? 'n/a')}
+          ${metricCard('Forecast requirement', f.resourceForecast.requiredResources ?? 'n/a', f.resourceForecast.status)}
+          ${metricCard('Shortage hours', f.resourceForecast.shortage ?? 'n/a')}
+          ${metricCard('Utilization', f.resourceForecast.utilization ?? 'n/a')}
+        </div>`;
+
+      const costSeries = f.charts?.cost || [];
+      document.getElementById('charts').hidden = false;
+      document.getElementById('charts').innerHTML = `
+        <h2>Visualizations</h2>
+        <h3>Cost forecast</h3>
+        <svg viewBox="0 0 600 180">${polyline(costSeries, 'actual', '#e74c3c', 600, 180)}${polyline(costSeries, 'forecast', '#8e44ad', 600, 180)}${polyline(costSeries, 'budget', '#3498db', 600, 180)}</svg>
+        <p>Blue = budget, red = actual, purple = forecast EAC</p>
+        <h3>Schedule</h3>
+        <p>Baseline: ${f.charts?.schedule?.baselineCompletion || 'n/a'} · Forecast: ${f.charts?.schedule?.forecastCompletion || 'n/a'} · Delay: ${f.charts?.schedule?.delayDays ?? 'n/a'} days</p>
+        <h3>Progress</h3>
+        <svg viewBox="0 0 600 180">${polyline(f.charts?.progress || [], 'planned', '#3498db', 600, 180)}${polyline(f.charts?.progress || [], 'actual', '#e67e22', 600, 180)}</svg>
+      `;
+
+      document.getElementById('alerts').hidden = false;
+      document.getElementById('alerts').innerHTML = `<h2>Alerts</h2>` + (
+        (f.alerts || []).length
+          ? `<table><thead><tr><th>Type</th><th>Severity</th><th>Message</th><th>Action</th></tr></thead><tbody>${
+            f.alerts.map((a) => `<tr><td>${a.type}</td><td class="status ${a.severity}">${a.severity}</td><td>${a.message}</td><td>${a.recommendedAction}</td></tr>`).join('')
+          }</tbody></table>`
+          : '<p>No deterministic alerts for the current metrics.</p>'
+      );
+
+      const snaps = historyBody.data?.snapshots || [];
+      document.getElementById('history').hidden = false;
+      document.getElementById('history').innerHTML = `<h2>Forecast trend</h2>` + (
+        snaps.length
+          ? `<table><thead><tr><th>Date</th><th>Forecast cost</th><th>Forecast completion</th></tr></thead><tbody>${
+            snaps.map((s) => `<tr><td>${s.forecastDate}</td><td>${money(s.costForecastValue)}</td><td>${s.scheduleForecastDate || 'n/a'}</td></tr>`).join('')
+          }</tbody></table>`
+          : '<p>No saved snapshots yet. Use Save snapshot to keep a history point.</p>'
+      );
+    }
+
+    async function saveSnapshot() {
+      state.projectId = document.getElementById('projectSelect').value;
+      if (!state.projectId) throw new Error('Select a project');
+      await api('/api/forecast/projects/' + state.projectId + '/generate', { method: 'POST' });
+      await loadForecast();
+    }
+
+    document.getElementById('login').onclick = () => login().catch((err) => {
+      document.getElementById('authStatus').innerHTML = '<span class="error">' + err.message + '</span>';
+    });
+    document.getElementById('load').onclick = () => loadForecast().catch((err) => {
+      document.getElementById('authStatus').innerHTML = '<span class="error">' + err.message + '</span>';
+    });
+    document.getElementById('save').onclick = () => saveSnapshot().catch((err) => {
+      document.getElementById('authStatus').innerHTML = '<span class="error">' + err.message + '</span>';
+    });
+
+    if (state.token) {
+      document.getElementById('authStatus').textContent = 'Token found — loading projects';
+      loadProjects().catch(() => {});
+    }
+  </script>
+</body>
+</html>

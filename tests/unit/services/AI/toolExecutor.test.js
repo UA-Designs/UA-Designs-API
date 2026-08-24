@@ -149,4 +149,22 @@ describe('toolExecutor', () => {
     expect(result.ok).toBe(true);
     expect(result.data.summary.total).toBeGreaterThanOrEqual(1);
   });
+
+  it('loads deterministic forecast numbers for the AI to explain', async () => {
+    const result = await executeTool({ name: 'get_project_forecast', arguments: {} }, ctx());
+    expect(result.ok).toBe(true);
+    expect(result.data.source).toMatch(/ForecastService/);
+    expect(result.data.costForecast).toHaveProperty('estimateAtCompletion');
+    expect(result.data.distinction.FORECAST).toBeTruthy();
+  });
+
+  it('runs what-if forecasts in memory', async () => {
+    const result = await executeTool({
+      name: 'run_what_if_forecast',
+      arguments: { scenarioType: 'ADD_WORKERS', workersToAdd: 2 }
+    }, ctx());
+    expect(result.ok).toBe(true);
+    expect(result.data.resultKind).toBe('SCENARIO / WHAT-IF');
+    expect(result.data.officialRecordsUnchanged).toBe(true);
+  });
 });

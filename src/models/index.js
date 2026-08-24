@@ -51,6 +51,7 @@ const AuditLogDef = require('./AuditLog/index');
 const AIConversationDef = require('./AI/AIConversation');
 const AIMessageDef = require('./AI/AIMessage');
 const AIActionProposalDef = require('./AI/AIActionProposal');
+const ForecastSnapshotDef = require('./Forecast/ForecastSnapshot');
 
 // Initialize models with sequelize
 const ProjectModel = Project;
@@ -78,6 +79,7 @@ const AuditLogModel = AuditLogDef(sequelize, Sequelize);
 const AIConversationModel = AIConversationDef(sequelize, Sequelize);
 const AIMessageModel = AIMessageDef(sequelize, Sequelize);
 const AIActionProposalModel = AIActionProposalDef(sequelize, Sequelize);
+const ForecastSnapshotModel = ForecastSnapshotDef(sequelize, Sequelize);
 
 const SiteUsageModel = SiteUsage(sequelize, Sequelize);
 
@@ -268,6 +270,12 @@ AIActionProposalModel.belongsTo(ProjectModel, { as: 'project', foreignKey: 'proj
 AIConversationModel.hasMany(AIActionProposalModel, { as: 'actionProposals', foreignKey: 'conversationId' });
 AIActionProposalModel.belongsTo(AIConversationModel, { as: 'conversation', foreignKey: 'conversationId' });
 
+// 8. Forecasting
+ProjectModel.hasMany(ForecastSnapshotModel, { as: 'forecastSnapshots', foreignKey: 'projectId' });
+ForecastSnapshotModel.belongsTo(ProjectModel, { as: 'project', foreignKey: 'projectId' });
+User.hasMany(ForecastSnapshotModel, { as: 'generatedForecasts', foreignKey: 'generatedBy' });
+ForecastSnapshotModel.belongsTo(User, { as: 'generator', foreignKey: 'generatedBy' });
+
 module.exports = {
   sequelize,
   Sequelize,
@@ -297,5 +305,6 @@ module.exports = {
   SiteUsage: SiteUsageModel,
   AIConversation: AIConversationModel,
   AIMessage: AIMessageModel,
-  AIActionProposal: AIActionProposalModel
+  AIActionProposal: AIActionProposalModel,
+  ForecastSnapshot: ForecastSnapshotModel
 }; 

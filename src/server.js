@@ -144,6 +144,9 @@ app.use('/api/audit', require('./routes/audit'));
 // AI-assisted suggestions
 app.use('/api/ai', require('./routes/ai'));
 
+// Deterministic project forecasting
+app.use('/api/forecast', require('./routes/forecast'));
+
 // Additional routes for project management
 
 // Health check
@@ -152,7 +155,7 @@ app.get('/api/health', (req, res) => {
     status: 'OK',
     timestamp: new Date().toISOString(),
     version: '1.0.0',
-    coreAreas: ['Schedule', 'Cost', 'Resources', 'Risk', 'Stakeholders']
+    coreAreas: ['Schedule', 'Cost', 'Resources', 'Risk', 'Stakeholders', 'Forecasting']
   });
 });
 
@@ -252,6 +255,10 @@ app.use((err, req, res, next) => {
 // Serve static files and web interface
 app.use(express.static('public'));
 
+app.get('/forecast', (req, res) => {
+  res.sendFile(require('path').join(__dirname, '../public/forecast.html'));
+});
+
 // Web interface routes
 app.get('/', (req, res) => {
   res.send(`
@@ -281,7 +288,7 @@ app.get('/', (req, res) => {
         <div class="container">
             <div class="header">
                 <h1>🏗️ UA Designs Project Management System</h1>
-                <p>Backend Dashboard - Core PMBOK Areas: Scheduling, Cost, Resources, Risk, Stakeholders</p>
+                <p>Backend Dashboard - Core PMBOK Areas: Scheduling, Cost, Resources, Risk, Stakeholders, Forecasting</p>
             </div>
             
             <div class="nav">
@@ -289,6 +296,7 @@ app.get('/', (req, res) => {
                 <a href="/projects">Projects</a>
                 <a href="/users">Users</a>
                 <a href="/tasks">Tasks</a>
+                <a href="/forecast">Forecasting</a>
                 <a href="/api/health">API Health</a>
             </div>
 
@@ -393,6 +401,7 @@ app.get('/projects', (req, res) => {
                 <a href="/projects">Projects</a>
                 <a href="/users">Users</a>
                 <a href="/tasks">Tasks</a>
+                <a href="/forecast">Forecasting</a>
                 <a href="/api/health">API Health</a>
             </div>
 
@@ -486,6 +495,7 @@ app.get('/users', (req, res) => {
                 <a href="/projects">Projects</a>
                 <a href="/users">Users</a>
                 <a href="/tasks">Tasks</a>
+                <a href="/forecast">Forecasting</a>
                 <a href="/api/health">API Health</a>
             </div>
 
@@ -578,6 +588,7 @@ app.get('/tasks', (req, res) => {
                 <a href="/projects">Projects</a>
                 <a href="/users">Users</a>
                 <a href="/tasks">Tasks</a>
+                <a href="/forecast">Forecasting</a>
                 <a href="/api/health">API Health</a>
             </div>
 
@@ -658,6 +669,7 @@ if (require.main === module) {
   const { ensureAiRiskSuggestionColumns } = require('./database/ensureAiRiskColumns');
   const { ensureScheduleSuggestionColumns } = require('./database/ensureScheduleSuggestionColumns');
   const { ensureAiConversationTables } = require('./database/ensureAiConversationTables');
+  const { ensureForecastTables } = require('./database/ensureForecastTables');
   const ensureRoleEnums = async () => {
     // Existing Render Postgres DBs may already have enum_users_role without new roles.
     // Add values safely so role inserts/updates work without manual SQL migration.
@@ -874,6 +886,7 @@ if (require.main === module) {
         .then(() => ensureAiRiskSuggestionColumns(sequelize))
         .then(() => ensureScheduleSuggestionColumns(sequelize))
         .then(() => ensureAiConversationTables())
+        .then(() => ensureForecastTables())
         .then(() => ensureScheduleBaselineTrackingMigration())
         .then(() => console.log('✅ Database connection verified (pre-seeded)'))
     : (async () => {
@@ -891,6 +904,7 @@ if (require.main === module) {
         await ensureAiRiskSuggestionColumns(sequelize);
         await ensureScheduleSuggestionColumns(sequelize);
         await ensureAiConversationTables();
+        await ensureForecastTables();
         await ensureScheduleBaselineTrackingMigration();
 
         const autoSeed = process.env.AUTO_SEED !== 'false' && process.env.NODE_ENV !== 'production';

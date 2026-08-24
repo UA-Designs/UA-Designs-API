@@ -2,6 +2,7 @@ const { sequelize } = require('../models');
 const { ensureAiRiskSuggestionColumns } = require('./ensureAiRiskColumns');
 const { ensureScheduleSuggestionColumns } = require('./ensureScheduleSuggestionColumns');
 const { ensureAiConversationTables } = require('./ensureAiConversationTables');
+const { ensureForecastTables } = require('./ensureForecastTables');
 
 async function migrate() {
   try {
@@ -12,6 +13,7 @@ async function migrate() {
     await ensureAiRiskSuggestionColumns(sequelize);
     await ensureScheduleSuggestionColumns(sequelize);
     await ensureAiConversationTables();
+    await ensureForecastTables();
     
     console.log('✅ Database migration completed successfully!');
     console.log('📊 Tables created:');
@@ -32,7 +34,7 @@ async function migrate() {
     console.log('   - schedules');
     console.log('   - budgets');
     console.log('   - reports');
-    console.log('   - change_requests');
+    console.log('   - forecast_snapshots');
     
     process.exit(0);
   } catch (error) {
