@@ -670,6 +670,7 @@ if (require.main === module) {
   const { ensureScheduleSuggestionColumns } = require('./database/ensureScheduleSuggestionColumns');
   const { ensureAiConversationTables } = require('./database/ensureAiConversationTables');
   const { ensureForecastTables } = require('./database/ensureForecastTables');
+  const { ensureConversationTables } = require('./database/ensureConversationTables');
   const ensureRoleEnums = async () => {
     // Existing Render Postgres DBs may already have enum_users_role without new roles.
     // Add values safely so role inserts/updates work without manual SQL migration.
@@ -887,6 +888,7 @@ if (require.main === module) {
         .then(() => ensureScheduleSuggestionColumns(sequelize))
         .then(() => ensureAiConversationTables())
         .then(() => ensureForecastTables())
+        .then(() => ensureConversationTables())
         .then(() => ensureScheduleBaselineTrackingMigration())
         .then(() => console.log('✅ Database connection verified (pre-seeded)'))
     : (async () => {
@@ -905,6 +907,7 @@ if (require.main === module) {
         await ensureScheduleSuggestionColumns(sequelize);
         await ensureAiConversationTables();
         await ensureForecastTables();
+        await ensureConversationTables();
         await ensureScheduleBaselineTrackingMigration();
 
         const autoSeed = process.env.AUTO_SEED !== 'false' && process.env.NODE_ENV !== 'production';

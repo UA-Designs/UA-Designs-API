@@ -1,4 +1,4 @@
-const { body, param, validationResult } = require('express-validator');
+const { body, param, query, validationResult } = require('express-validator');
 
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
@@ -192,11 +192,60 @@ const validateSubmitFeedback = [
   handleValidationErrors
 ];
 
+const validateListConversations = [
+  query('projectId')
+    .notEmpty().withMessage('Project ID is required')
+    .isUUID().withMessage('Project ID must be a valid UUID'),
+  query('stakeholderUser')
+    .optional()
+    .isIn(['me']).withMessage('stakeholderUser must be "me"'),
+  handleValidationErrors
+];
+
+const validateConversationId = [
+  param('conversationId')
+    .isUUID().withMessage('Conversation ID must be a valid UUID'),
+  handleValidationErrors
+];
+
+const validateListMessages = [
+  param('conversationId')
+    .isUUID().withMessage('Conversation ID must be a valid UUID'),
+  query('before')
+    .optional()
+    .isISO8601().withMessage('before must be a valid ISO 8601 date'),
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 100 }).withMessage('limit must be an integer from 1 to 100'),
+  handleValidationErrors
+];
+
+const validateSendMessage = [
+  param('conversationId')
+    .isUUID().withMessage('Conversation ID must be a valid UUID'),
+  body('body')
+    .trim()
+    .notEmpty().withMessage('Message body is required')
+    .isLength({ max: 4000 }).withMessage('Message must not exceed 4000 characters'),
+  handleValidationErrors
+];
+
+const validateStakeholderConversation = [
+  param('id')
+    .isUUID().withMessage('Stakeholder ID must be a valid UUID'),
+  handleValidationErrors
+];
+
 module.exports = {
   validateCreateStakeholder,
   validateUpdateStakeholder,
   validateCreateCommunication,
   validateUpdateCommunication,
   validateRecordEngagement,
-  validateSubmitFeedback
+  validateSubmitFeedback,
+  validateListConversations,
+  validateConversationId,
+  validateListMessages,
+  validateSendMessage,
+  validateStakeholderConversation
 };

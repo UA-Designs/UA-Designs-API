@@ -43,6 +43,8 @@ const { RiskModel: Risk, RiskMitigation, RiskCategory, RiskTaskLink } = require(
 const Stakeholder = require('./Stakeholder/index');
 const Communication = require('./Stakeholder/Communication/index');
 const StakeholderEngagement = require('./Stakeholder/StakeholderEngagement/index');
+const Conversation = require('./Stakeholder/Conversation/index');
+const Message = require('./Stakeholder/Message/index');
 
 // Audit Log
 const AuditLogDef = require('./AuditLog/index');
@@ -75,6 +77,8 @@ const RiskTaskLinkModel = RiskTaskLink(sequelize, Sequelize);
 const StakeholderModel = Stakeholder(sequelize, Sequelize);
 const CommunicationModel = Communication(sequelize, Sequelize);
 const StakeholderEngagementModel = StakeholderEngagement(sequelize, Sequelize);
+const ConversationModel = Conversation(sequelize, Sequelize);
+const MessageModel = Message(sequelize, Sequelize);
 const AuditLogModel = AuditLogDef(sequelize, Sequelize);
 const AIConversationModel = AIConversationDef(sequelize, Sequelize);
 const AIMessageModel = AIMessageDef(sequelize, Sequelize);
@@ -245,6 +249,15 @@ ProjectModel.hasMany(StakeholderEngagementModel, { as: 'stakeholderEngagements',
 StakeholderEngagementModel.belongsTo(User, { as: 'assessor', foreignKey: 'assessedBy' });
 User.hasMany(StakeholderEngagementModel, { as: 'conductedEngagements', foreignKey: 'assessedBy' });
 
+ProjectModel.hasMany(ConversationModel, { as: 'conversations', foreignKey: 'projectId' });
+ConversationModel.belongsTo(ProjectModel, { as: 'project', foreignKey: 'projectId' });
+StakeholderModel.hasMany(ConversationModel, { as: 'conversations', foreignKey: 'stakeholderId' });
+ConversationModel.belongsTo(StakeholderModel, { as: 'stakeholder', foreignKey: 'stakeholderId' });
+ConversationModel.hasMany(MessageModel, { as: 'messages', foreignKey: 'conversationId' });
+MessageModel.belongsTo(ConversationModel, { as: 'conversation', foreignKey: 'conversationId' });
+User.hasMany(MessageModel, { as: 'stakeholderMessages', foreignKey: 'senderId' });
+MessageModel.belongsTo(User, { as: 'sender', foreignKey: 'senderId' });
+
 // 6. Audit Log
 User.hasMany(AuditLogModel, { as: 'auditLogs', foreignKey: 'userId' });
 AuditLogModel.belongsTo(User, { as: 'user', foreignKey: 'userId' });
@@ -291,6 +304,8 @@ module.exports = {
   Stakeholder: StakeholderModel,
   Communication: CommunicationModel,
   StakeholderEngagement: StakeholderEngagementModel,
+  Conversation: ConversationModel,
+  Message: MessageModel,
   Material: MaterialModel,
   Equipment: EquipmentModel,
   Labor: LaborModel,
