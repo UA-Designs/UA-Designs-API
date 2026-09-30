@@ -260,7 +260,13 @@ router.get('/:id/dashboard', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const project = await Project.findByPk(id);
+    const project = await Project.findByPk(id, {
+      include: [{
+        model: User,
+        as: 'projectManager',
+        attributes: ['id', 'firstName', 'lastName', 'email', 'role']
+      }]
+    });
     if (!project) {
       return res.status(404).json({
         success: false,
@@ -313,7 +319,17 @@ router.get('/:id/dashboard', authenticateToken, async (req, res) => {
         budget: project.budget,
         priority: project.priority,
         projectType: project.projectType,
-        clientName: project.clientName
+        clientName: project.clientName,
+        projectManagerId: project.projectManagerId || null,
+        projectManager: project.projectManager
+          ? {
+              id: project.projectManager.id,
+              firstName: project.projectManager.firstName,
+              lastName: project.projectManager.lastName,
+              email: project.projectManager.email,
+              role: project.projectManager.role
+            }
+          : null
       },
       pmbokCoreAreas: {
         schedule: { 
@@ -582,7 +598,16 @@ router.patch('/:id/status', authenticateToken, authorizeOwnerOr('MANAGER_AND_ABO
 router.patch('/:id/assign-manager', authenticateToken, authorize('MANAGER_AND_ABOVE'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { projectManagerId } = req.body;
+    const body = req.body || {};
+    const rawManager = body.projectManagerId || body.managerId || body.userId || body.projectManager;
+    const projectManagerId = rawManager && typeof rawManager === 'object' ? rawManager.id : rawManager;
+
+    if (!projectManagerId) {
+      return res.status(400).json({
+        success: false,
+        message: 'projectManagerId is required'
+      });
+    }
 
     const project = await Project.findByPk(id);
     if (!project) {
@@ -592,7 +617,6 @@ router.patch('/:id/assign-manager', authenticateToken, authorize('MANAGER_AND_AB
       });
     }
 
-    // Verify the new project manager exists and has appropriate role
     const newManager = await User.findByPk(projectManagerId);
     if (!newManager) {
       return res.status(404).json({
@@ -601,19 +625,31 @@ router.patch('/:id/assign-manager', authenticateToken, authorize('MANAGER_AND_AB
       });
     }
 
-    if (!['ADMIN', 'PROJECT_MANAGER', 'ARCHITECT'].includes(newManager.role)) {
+    if (!['ADMIN', 'PROPRIETOR', 'PROJECT_MANAGER', 'ARCHITECT'].includes(newManager.role)) {
       return res.status(400).json({
         success: false,
-        message: 'User must be an architect, project manager, or admin to be assigned as project manager'
+        message: 'User must be an architect, project manager, proprietor, or admin to be assigned as project manager'
       });
     }
 
-    await project.update({ projectManagerId });
+    await project.update({ projectManagerId: newManager.id });
+
+    const updated = await Project.findByPk(id, {
+      include: [{
+        model: User,
+        as: 'projectManager',
+        attributes: ['id', 'firstName', 'lastName', 'email', 'role']
+      }]
+    });
 
     res.json({
       success: true,
       message: 'Project manager assigned successfully',
-      data: { project }
+      data: {
+        project: updated,
+        projectManager: updated.projectManager,
+        assignedCount: updated.projectManager ? 1 : 0
+      }
     });
   } catch (error) {
     console.error('Assign project manager error:', error);

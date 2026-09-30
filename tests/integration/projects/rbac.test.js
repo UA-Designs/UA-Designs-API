@@ -169,6 +169,9 @@ describe('PATCH /api/projects/:id/assign-manager — MANAGER_AND_ABOVE', () => {
       .send({ projectManagerId: pmUser.id });
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
+    expect(res.body.data.project.projectManagerId).toBe(pmUser.id);
+    expect(res.body.data.projectManager.id).toBe(pmUser.id);
+    expect(res.body.data.assignedCount).toBe(1);
   });
 
   it('blocks CIVIL_ENGINEER with 403', async () => {
