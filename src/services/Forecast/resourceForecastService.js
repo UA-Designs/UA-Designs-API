@@ -35,6 +35,9 @@ function currentResourceCount(inputs) {
   const ids = new Set();
   labor.forEach((item) => ids.add(`labor:${item.id}`));
   team.forEach((item) => ids.add(`team:${item.userId || item.id}`));
+  (inputs.tasks || []).forEach((task) => {
+    if (task.assignedTo && task.status !== 'CANCELLED') ids.add(`user:${task.assignedTo}`);
+  });
   return {
     count: ids.size,
     laborCount: labor.length,

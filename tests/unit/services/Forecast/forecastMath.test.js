@@ -178,10 +178,25 @@ describe('forecast engine with construction data', () => {
       labor: [],
       teamMembers: [],
       allocations: [],
+      costs: [],
+      expenses: [],
       tasks: [{ id: 't1', name: 'Unknown scope', status: 'IN_PROGRESS', progress: 10 }]
     }));
     expect(result.resourceForecast.status).toBe('INSUFFICIENT_DATA');
     expect(result.resourceForecast.requiredResources).toBeNull();
+    expect(result.dataQuality.missingData).toEqual(expect.arrayContaining(['resources']));
+  });
+
+  it('accepts a BOQ labor cost line as the resource signal the cost page can save', () => {
+    const result = computeFromInputs(constructionInputs({
+      labor: [],
+      teamMembers: [],
+      allocations: [],
+      expenses: [],
+      costs: [{ id: 'c-labor', type: 'LABOR', amount: 8000, actualAmount: 12000 }],
+      tasks: [{ id: 't1', name: 'Unknown scope', status: 'IN_PROGRESS', progress: 10, duration: 5 }]
+    }));
+    expect(result.dataQuality.missingData).not.toEqual(expect.arrayContaining(['resources']));
   });
 
   it('flags missing budget and invalid progress in data quality', () => {

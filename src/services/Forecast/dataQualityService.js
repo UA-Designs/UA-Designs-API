@@ -12,6 +12,7 @@ function assessDataQuality(inputs) {
   const labor = inputs.labor || [];
   const teamMembers = inputs.teamMembers || [];
   const allocations = inputs.allocations || [];
+  const costs = inputs.costs || [];
 
   const projectBudget = toFiniteNumber(project.budget, 0);
   const recordBudget = budgets.reduce((sum, b) => sum + toFiniteNumber(b.amount, 0), 0);
@@ -86,11 +87,17 @@ function assessDataQuality(inputs) {
     issues.push({ field: 'progress', severity: 'MEDIUM', message: 'No project or task progress values found.' });
   }
 
+  const hasLaborCost = costs.some((cost) => String(cost.type || '').toUpperCase() === 'LABOR');
+  const hasLaborExpense = expenses.some((expense) => String(expense.category || expense.type || '').toUpperCase() === 'LABOR');
+  const hasAssignee = tasks.some((task) => task.assignedTo && task.status !== 'CANCELLED');
   const hasResourceSignal = labor.length > 0 || teamMembers.length > 0
-    || allocations.some((item) => item.resourceType === 'LABOR');
+    || allocations.some((item) => item.resourceType === 'LABOR')
+    || hasLaborCost
+    || hasLaborExpense
+    || hasAssignee;
   if (!hasResourceSignal) {
     missingData.push('resources');
-    issues.push({ field: 'resources', severity: 'MEDIUM', message: 'No labor, team, or labor allocation records found.' });
+    issues.push({ field: 'resources', severity: 'MEDIUM', message: 'No labor cost, labor expense, team member, or task assignee found.' });
   }
 
   const uniqueMissing = [...new Set(missingData)];
