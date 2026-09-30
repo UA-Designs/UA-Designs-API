@@ -148,7 +148,7 @@ The first user registered gets full access. Additional users are registered by a
 | GET | `/projects/:id` | Auth | Project details with dashboard |
 | PUT | `/projects/:id` | Owner/Admin | Update project |
 | PATCH | `/projects/:id/status` | Owner/Admin | Update status |
-| PATCH | `/projects/:id/assign-manager` | Admin | Assign PM |
+| PATCH | `/projects/:id/assign-manager` | Manager+ | Assign PM |
 | DELETE | `/projects/:id` | Admin | Delete project |
 
 ### Schedule (Tasks & Dependencies)

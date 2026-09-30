@@ -578,8 +578,8 @@ router.patch('/:id/status', authenticateToken, authorizeOwnerOr('MANAGER_AND_ABO
   }
 });
 
-// Assign project manager
-router.patch('/:id/assign-manager', authenticateToken, authorize('ADMIN_ONLY'), async (req, res) => {
+// Assign project manager (project managers and above)
+router.patch('/:id/assign-manager', authenticateToken, authorize('MANAGER_AND_ABOVE'), async (req, res) => {
   try {
     const { id } = req.params;
     const { projectManagerId } = req.body;

@@ -6,7 +6,7 @@
  *   POST /api/projects/           → MANAGER_AND_ABOVE
  *   PUT  /api/projects/:id        → MANAGER_AND_ABOVE
  *   PATCH /api/projects/:id/status → MANAGER_AND_ABOVE
- *   PATCH /api/projects/:id/assign-manager → ADMIN_ONLY
+ *   PATCH /api/projects/:id/assign-manager → MANAGER_AND_ABOVE
  *   DELETE /api/projects/:id      → ADMIN_ONLY
  */
 
@@ -159,15 +159,16 @@ describe('PATCH /api/projects/:id/status — MANAGER_AND_ABOVE', () => {
   });
 });
 
-// ── PATCH /api/projects/:id/assign-manager — ADMIN_ONLY ──────────────────────
+// ── PATCH /api/projects/:id/assign-manager — MANAGER_AND_ABOVE ───────────────
 
-describe('PATCH /api/projects/:id/assign-manager — ADMIN_ONLY', () => {
-  it('blocks PROJECT_MANAGER with 403', async () => {
+describe('PATCH /api/projects/:id/assign-manager — MANAGER_AND_ABOVE', () => {
+  it('allows PROJECT_MANAGER', async () => {
     const res = await request(app)
       .patch(`/api/projects/${testProject.id}/assign-manager`)
       .set('Authorization', `Bearer ${pmToken}`)
       .send({ projectManagerId: pmUser.id });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
   });
 
   it('blocks CIVIL_ENGINEER with 403', async () => {
