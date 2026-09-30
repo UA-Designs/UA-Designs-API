@@ -187,6 +187,33 @@ describe('forecast engine with construction data', () => {
     expect(result.dataQuality.missingData).toEqual(expect.arrayContaining(['resources']));
   });
 
+  it('forecasts the schedule from a task marked completed today', () => {
+    const today = new Date('2026-09-30T00:00:00.000Z');
+    const result = computeFromInputs(constructionInputs({
+      asOfDate: today,
+      project: {
+        id: '11111111-1111-4111-8111-111111111111',
+        name: 'Harbor Warehouse Fit-out',
+        status: 'active',
+        startDate: today.toISOString(),
+        endDate: '2026-12-30T00:00:00.000Z',
+        budget: 10000000,
+        progress: 100
+      },
+      tasks: [{
+        id: 't-done',
+        name: 'Site clearing',
+        status: 'COMPLETED',
+        progress: 100,
+        duration: null,
+        actualEndDate: today.toISOString()
+      }]
+    }));
+    expect(result.scheduleForecast.status).not.toBe('INSUFFICIENT_DATA');
+    expect(result.scheduleForecast.forecastCompletionDate).toBeTruthy();
+    expect(result.scheduleForecast.schedulePerformanceIndex).toBeGreaterThan(0);
+  });
+
   it('accepts a BOQ labor cost line as the resource signal the cost page can save', () => {
     const result = computeFromInputs(constructionInputs({
       labor: [],

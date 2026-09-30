@@ -13,6 +13,14 @@ const {
 } = require('./forecastMath');
 const { resolveActualProgressPct, resolvePlannedProgressPct } = require('./costForecastService');
 
+function taskStart(task, project) {
+  return task.baselineStartDate || task.plannedStartDate || task.startDate || task.actualStartDate || (project && project.startDate) || null;
+}
+
+function taskEnd(task) {
+  return task.baselineEndDate || task.plannedEndDate || task.endDate || task.actualEndDate || null;
+}
+
 function resolvePlannedDuration(inputs) {
   const project = inputs.project || {};
   const fromProject = daysBetween(project.startDate, project.endDate);
@@ -21,9 +29,7 @@ function resolvePlannedDuration(inputs) {
   }
 
   const taskSpans = (inputs.tasks || []).map((task) => {
-    const start = task.baselineStartDate || task.plannedStartDate || task.startDate || project.startDate;
-    const end = task.baselineEndDate || task.plannedEndDate || task.endDate;
-    const span = daysBetween(start, end);
+    const span = daysBetween(taskStart(task, project), taskEnd(task));
     if (isFiniteNumber(span) && span > 0) return span;
     return toFiniteNumber(task.duration, 0);
   }).filter((value) => value > 0);
@@ -32,20 +38,41 @@ function resolvePlannedDuration(inputs) {
     return { plannedDuration: Math.max(...taskSpans), source: 'task_dates' };
   }
 
+  const completed = (inputs.tasks || []).filter((task) => task.status === 'COMPLETED');
+  if (completed.length > 0) {
+    return { plannedDuration: Math.max(1, completed.length), source: 'completed_tasks' };
+  }
+
   return { plannedDuration: null, source: 'none' };
 }
 
 function resolveElapsedDuration(inputs) {
-  const start = inputs.project && inputs.project.startDate;
+  const project = inputs.project || {};
+  const tasks = inputs.tasks || [];
+  let start = project.startDate;
+  if (!start) {
+    const anchors = tasks
+      .map((task) => task.actualStartDate || task.startDate || task.plannedStartDate || task.baselineStartDate || task.actualEndDate)
+      .filter(Boolean)
+      .sort();
+    start = anchors[0] || null;
+  }
   if (!start) return 0;
   const elapsed = daysBetween(start, inputs.asOfDate);
-  return elapsed == null ? 0 : Math.max(0, elapsed);
+  const days = elapsed == null ? 0 : Math.max(0, elapsed);
+  const anyCompleted = tasks.some((task) => task.status === 'COMPLETED');
+  if (days === 0 && anyCompleted) return 1;
+  return days;
 }
 
 function forecastDurationFromCompletionRate(inputs, plannedDuration, elapsedDuration) {
   const tasks = (inputs.tasks || []).filter((task) => task.status !== 'CANCELLED');
-  if (tasks.length === 0 || elapsedDuration <= 0) return null;
+  if (tasks.length === 0) return null;
   const completed = tasks.filter((task) => task.status === 'COMPLETED').length;
+  if (completed === tasks.length && completed > 0) {
+    return Math.max(elapsedDuration, 1);
+  }
+  if (elapsedDuration <= 0) return null;
   const rate = safeDivide(completed, elapsedDuration, null);
   if (!isFiniteNumber(rate) || rate <= 0) return null;
   const remaining = tasks.length - completed;

@@ -53,9 +53,10 @@ function assessDataQuality(inputs) {
 
   const tasksMissingDuration = tasks.filter((task) => {
     const duration = toFiniteNumber(task.duration, 0);
-    const start = task.startDate || task.plannedStartDate;
-    const end = task.endDate || task.plannedEndDate;
-    return duration <= 0 && !(start && end);
+    const start = task.startDate || task.plannedStartDate || task.actualStartDate;
+    const end = task.endDate || task.plannedEndDate || task.actualEndDate;
+    const completed = task.status === 'COMPLETED' && (end || toFiniteNumber(task.progress, 0) >= 100);
+    return duration <= 0 && !(start && end) && !completed;
   });
   if (tasksMissingDuration.length > 0) {
     missingData.push('taskDurations');
